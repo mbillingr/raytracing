@@ -1,47 +1,7 @@
 (import (scheme base)
-        (scheme write)
         (scheme inexact)
+        (raytrace testing)
         (raytrace tuple))
-
-(define-syntax test
-  (syntax-rules (given then <-)
-    ((test description
-       (given (var <- val) ...)
-       (then (a == b) ...))
-     (test description
-       (given (var <- val) ...)
-       (when)
-       (then (a == b) ...)))
-
-    ((test description
-       (given (var <- val) ...)
-       (when (var2 <- val2) ...)
-       (then (a == b) ...))
-     (let ((var val) ...)
-       (let ((var2 val2) ...)
-         (let ((a-val a)
-               (b-val b))
-           (if (same? a-val b-val)
-               'pass
-               (begin
-                 (display "FAIL: ")
-                 (display description)
-                 (newline)
-                 (display "    ")
-                 (display 'a)
-                 (display " == ")
-                 (display 'b)
-                 (newline)
-                 (display "    ")
-                 (print a-val)
-                 (display " == ")
-                 (print b-val)
-                 (newline)
-                 (error description `(same? a b)))))
-         ...
-         (display "PASS: ")
-         (display description)
-         (newline))))))
 
 (test "A tuple with w=1.0 is a point"
   (given (a <- (tuple 4.3 -4.2 3.1 1.0)))
@@ -148,3 +108,28 @@
          (b <- (vec 2 3 4)))
   (then ((cross a b) == (vec -1 2 -1))
         ((cross b a) == (vec 1 -2 1))))
+
+(test "Colors are (red green blue) tuples"
+  (given (c <- (color -0.5 0.4 1.7)))
+  (then ((color-red c) == -0.5)
+        ((color-green c) == 0.4)
+        ((color-blue c) == 1.7)))
+
+(test "Adding colors"
+  (given (c1 <- (color 0.9 0.6 0.75))
+         (c2 <- (color 0.7 0.1 0.25)))
+  (then ((color+ c1 c2) == (color 1.6 0.7 1.0))))
+
+(test "Subtracting colors"
+  (given (c1 <- (color 0.9 0.6 0.75))
+         (c2 <- (color 0.7 0.1 0.25)))
+  (then ((color- c1 c2) == (color 0.2 0.5 0.5))))
+
+(test "Multiplying a color by a scalar"
+  (given (c <- (color 0.2 0.3 0.4)))
+  (then ((color-scale c 2) == (color 0.4 0.6 0.8))))
+
+(test "Multiplying colors"
+  (given (c1 <- (color 1 0.2 0.4))
+         (c2 <- (color 0.9 1 0.1)))
+  (then ((color* c1 c2) == (color 0.9 0.2 0.04))))

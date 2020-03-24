@@ -3,23 +3,35 @@
           point point? vec vec?
           tuple-add tuple-sub tuple-neg tuple-scale tuple-div
           magnitude normalize dot cross
-          print same?)
+          color color?
+          color-red color-green color-blue
+          color+ color- color* color-scale)
   (import (scheme base)
           (scheme write)
-          (scheme inexact))
+          (scheme inexact)
+          (raytrace generic)
+          (raytrace compare))
   (begin
-    (define (tuple x y z w) (lambda (method) (method x y z w)))
+    (define-record-type <tuple>
+      (tuple x y z w)
+      tuple?
+      (x tuple-x)
+      (y tuple-y)
+      (z tuple-z)
+      (w tuple-w))
+
+    (define-record-type <color>
+      (color r g b)
+      color?
+      (r color-red)
+      (g color-green)
+      (b color-blue))
+
     (define (point x y z) (tuple x y z 1.0))
-    (define (vec x y z) (tuple x y z 0.0))
-
-    (define (tuple? obj) (procedure? obj))
     (define (point? obj) (and (tuple? obj) (= (tuple-w obj) 1.0)))
-    (define (vec? obj) (and (tuple? obj) (= (tuple-w obj) 0.0)))
 
-    (define (tuple-x obj) (obj (lambda (x y z w) x)))
-    (define (tuple-y obj) (obj (lambda (x y z w) y)))
-    (define (tuple-z obj) (obj (lambda (x y z w) z)))
-    (define (tuple-w obj) (obj (lambda (x y z w) w)))
+    (define (vec x y z) (tuple x y z 0.0))
+    (define (vec? obj) (and (tuple? obj) (= (tuple-w obj) 0.0)))
 
     (define (tuple-add a b)
       (tuple (+ (tuple-x a) (tuple-x b))
@@ -67,34 +79,66 @@
              (- (* az bx) (* ax bz))
              (- (* ax by) (* ay bx)))))
 
-    (define EPSILON 0.00001)
+    (define (color+ a b)
+      (color (+ (color-red a) (color-red b))
+             (+ (color-green a) (color-green b))
+             (+ (color-blue a) (color-blue b))))
+
+    (define (color- a b)
+      (color (- (color-red a) (color-red b))
+             (- (color-green a) (color-green b))
+             (- (color-blue a) (color-blue b))))
+
+    (define (color* a b)
+      (color (* (color-red a) (color-red b))
+             (* (color-green a) (color-green b))
+             (* (color-blue a) (color-blue b))))
+
+    (define (color-scale c s)
+      (color (* (color-red c) s)
+             (* (color-green c) s)
+             (* (color-blue c) s)))
 
     (define (sqr x) (* x x))
-    (define (abs x) (if (< x 0) (- x) x))
 
-    (define (almost= a b)
-      (< (abs (- a b))
-         EPSILON))
+    (define (tuple-almost-equal? a b)
+      (and (almost= (tuple-x a) (tuple-x b))
+           (almost= (tuple-y a) (tuple-y b))
+           (almost= (tuple-z a) (tuple-z b))
+           (almost= (tuple-w a) (tuple-w b))))
 
-    (define (same? a b)
-      (cond ((and (tuple? a) (tuple? b))
-             (and (almost= (tuple-x a) (tuple-x b))
-                  (almost= (tuple-y a) (tuple-y b))
-                  (almost= (tuple-z a) (tuple-z b))
-                  (almost= (tuple-w a) (tuple-w b))))
-            ((and (number? a) (number? b))
-             (almost= a b))
-            (else (equal? a b))))
+    (define (tuple-print obj)
+      (display "[")
+      (display (tuple-x obj))
+      (display " ")
+      (display (tuple-y obj))
+      (display " ")
+      (display (tuple-z obj))
+      (display " ")
+      (display (tuple-w obj))
+      (display "]"))
 
-    (define (print obj)
-      (if (tuple? obj)
-          (begin (display "[")
-                 (display (tuple-x obj))
-                 (display " ")
-                 (display (tuple-y obj))
-                 (display " ")
-                 (display (tuple-z obj))
-                 (display " ")
-                 (display (tuple-w obj))
-                 (display "]"))
-          (display obj)))))
+    (define (tuple-dispatch method . args)
+      (cond ((eq? 'print method) (apply tuple-print args))
+            ((eq? 'almost-equal? method) (apply tuple-almost-equal? args))))
+
+    (define (color-almost-equal? a b)
+      (and (almost= (color-red a) (color-red b))
+           (almost= (color-green a) (color-green b))
+           (almost= (color-blue a) (color-blue b))))
+
+    (define (color-print obj)
+      (display "[r=")
+      (display (color-red obj))
+      (display " g=")
+      (display (color-green obj))
+      (display " b=")
+      (display (color-blue obj))
+      (display "]"))
+
+    (define (color-dispatch method . args)
+      (cond ((eq? 'print method) (apply color-print args))
+            ((eq? 'almost-equal? method) (apply color-almost-equal? args))))
+
+    (register-type tuple? tuple-dispatch)
+    (register-type color? color-dispatch)))
