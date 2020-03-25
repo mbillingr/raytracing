@@ -16,10 +16,10 @@
 
         ((test description
            (given (var <- val) ...)
-           (when (var2 <- val2) ...)
+           (when items ...)
            (then (a == b) ...))
          (let ((var val) ...)
-           (let ((var2 val2) ...)
+           (test "when" items ...
              (let ((a-val a)
                    (b-val b))
                (if (almost-equal? a-val b-val)
@@ -42,4 +42,22 @@
              ...
              (display "PASS: ")
              (display description)
-             (newline))))))))
+             (newline))))
+
+        ((test "when" body)
+         body)
+
+        ((test "when" item body)
+         (test "when-item" item body))
+
+        ((test "when" item more ... body)
+         (test "when-item" item (test "when" more ... body)))
+
+        ((test "when-item" (var <- val) body)
+         (let ((var val))
+           body))
+
+        ((test "when-item" item body)
+         (begin
+           item
+           body))))))

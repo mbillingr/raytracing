@@ -5,7 +5,7 @@
           magnitude normalize dot cross
           color color?
           color-red color-green color-blue
-          color+ color- color* color-scale)
+          color+ color- color* color-scale color-clip color-round)
   (import (scheme base)
           (scheme write)
           (scheme inexact)
@@ -98,6 +98,21 @@
       (color (* (color-red c) s)
              (* (color-green c) s)
              (* (color-blue c) s)))
+
+    (define (color-clip min max c)
+      (color (clip min max (color-red c))
+             (clip min max (color-green c))
+             (clip min max (color-blue c))))
+
+    (define (color-round c)
+      (color (exact (round (color-red c)))
+             (exact (round (color-green c)))
+             (exact (round (color-blue c)))))
+
+    (define (clip min max x)
+      (cond ((< x min) min)
+            ((< max x) max)
+            (else x)))
 
     (define (sqr x) (* x x))
 
