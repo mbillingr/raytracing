@@ -58,9 +58,8 @@
       (+ x (* y (canvas-width canvas))))
 
     (define (canvas->ppm canvas)
-      (apply string-append
-             (canvas->ppm-header canvas)
-             (canvas->ppm-data canvas)))
+      (string-append (canvas->ppm-header canvas)
+                     (canvas->ppm-data canvas)))
 
     (define (canvas->ppm-header canvas)
       (string-append
@@ -75,30 +74,14 @@
       (let* ((data (canvas-data canvas))
              (n (vector-length data))
              (w (canvas-width canvas))
-             (out '())
+             (out "")
              (current-line ""))
         (let loop ((i 0))
           (if (= i n)
-              (reverse (adjoin-line current-line out))
+              out
               (let ((c (color->string (vector-ref data i))))
-                (set! current-line (string-append current-line c))
-                (if (= (remainder i w) (- w 1))
-                    (begin
-                      (set! out (adjoin-line (string-append current-line "\n") out))
-                      (set! current-line ""))
-                    (set! current-line (string-append current-line " ")))
+                (set! out (string-append out c "\n"))
                 (loop (+ i 1)))))))
-
-    (define (adjoin-line line lines)
-      (define (find-split line i)
-        (if (equal? (string-ref line i) #\space)
-            i
-            (find-split line (- i 1))))
-      (if (< (string-length line) 70)
-          (cons line lines)
-          (let ((split (find-split line 70)))
-            (string-set! line split #\newline)
-            (cons line lines))))
 
     (define (color->string c)
       (let ((c (color-round

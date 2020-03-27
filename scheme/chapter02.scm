@@ -42,8 +42,8 @@
 (define projectile3 (make-projectile (point 0 0 0) (vec 1.5 0.5 0)))
 
 (define image (run (canvas 64 48) env projectile1 (color 1 0.5 0.5)))
-(define image (run image env projectile2 (color 0.5 1.0 0.5)))
-(define image (run image env projectile3 (color 0.5 0.5 1.0)))
+(define image2 (run image env projectile2 (color 0.5 1.0 0.5)))
+(define image (run image2 env projectile3 (color 0.5 0.5 1.0)))
 
 (call-with-output-file "chapter02.ppm"
   (lambda (f)
