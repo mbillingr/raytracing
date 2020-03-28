@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul, Neg, Sub, Div};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 pub fn tuple(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>, w: impl Into<f64>) -> Tuple {
     Tuple::new(x.into(), y.into(), z.into(), w.into())
@@ -52,13 +52,6 @@ impl Tuple {
         self.w() == 0.0
     }
 
-    pub fn equals(&self, other: &Self) -> bool {
-        float_equal(self.0, other.0)
-            && float_equal(self.1, other.1)
-            && float_equal(self.2, other.2)
-            && float_equal(self.3, other.3)
-    }
-
     pub fn add(&self, other: &Self) -> Self {
         Tuple::new(
             self.0 + other.0,
@@ -94,7 +87,7 @@ impl Tuple {
     }
 
     pub fn dot(&self, rhs: &Self) -> f64 {
-        self.0*rhs.0 + self.1*rhs.1 + self.2*rhs.2 + self.3*rhs.3
+        self.0 * rhs.0 + self.1 * rhs.1 + self.2 * rhs.2 + self.3 * rhs.3
     }
 
     pub fn cross(&self, rhs: &Self) -> Self {
@@ -103,7 +96,7 @@ impl Tuple {
         vector(
             self.y() * rhs.z() - self.z() * rhs.y(),
             self.z() * rhs.x() - self.x() * rhs.z(),
-            self.x() * rhs.y() - self.y() * rhs.x()
+            self.x() * rhs.y() - self.y() * rhs.x(),
         )
     }
 }
@@ -166,11 +159,12 @@ impl<T: Into<f64>> Div<T> for Tuple {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::approx_eq::ApproximateEq;
 
     /// Only for testing, implement an inaccurate PartialEq
     impl PartialEq for Tuple {
         fn eq(&self, other: &Self) -> bool {
-            self.equals(other)
+            self.approx_eq(other)
         }
     }
 
@@ -328,7 +322,10 @@ mod tests {
     #[test]
     fn normalize_vec() {
         let v = vector(1, 2, 3);
-        assert_eq!(v.normalize(), vector(1.0/14f64.sqrt(), 2.0/14f64.sqrt(), 3.0/14f64.sqrt()));
+        assert_eq!(
+            v.normalize(),
+            vector(1.0 / 14f64.sqrt(), 2.0 / 14f64.sqrt(), 3.0 / 14f64.sqrt())
+        );
     }
 
     /// Magnitude of normalied vector
