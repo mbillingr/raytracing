@@ -28,6 +28,23 @@ impl Color {
         self.blue
     }
 
+    pub fn to_u8(self) -> (u8, u8, u8) {
+        let c = self.clip(0.0, 1.0);
+        (
+            (c.red * 255.0).round() as u8,
+            (c.green * 255.0).round() as u8,
+            (c.blue * 255.0).round() as u8,
+        )
+    }
+
+    pub fn clip(self, lo: f64, hi: f64) -> Self {
+        Color::new(
+            self.red.max(lo).min(hi),
+            self.green.max(lo).min(hi),
+            self.blue.max(lo).min(hi),
+        )
+    }
+
     pub fn add(&self, other: &Self) -> Self {
         Color::new(
             self.red + other.red,

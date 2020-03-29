@@ -1,5 +1,8 @@
+use crate::canvas_life::Message;
 use crate::color::{color, Color};
 use std::io::Write;
+use std::sync::mpsc::Sender;
+use std::thread::JoinHandle;
 
 pub fn canvas(w: usize, h: usize) -> Canvas {
     Canvas::new(w, h)
@@ -9,6 +12,16 @@ pub struct Canvas {
     width: usize,
     height: usize,
     data: Vec<Color>,
+    pub(crate) threads: Vec<JoinHandle<()>>,
+    pub(crate) listeners: Vec<Sender<Message>>,
+}
+
+impl Drop for Canvas {
+    fn drop(&mut self) {
+        for thread in self.threads.drain(..) {
+            thread.join().unwrap()
+        }
+    }
 }
 
 impl Canvas {
@@ -17,6 +30,8 @@ impl Canvas {
             width,
             height,
             data: vec![color(0, 0, 0); width * height],
+            threads: vec![],
+            listeners: vec![],
         }
     }
 
@@ -31,10 +46,16 @@ impl Canvas {
     pub fn clear(&mut self, c: Color) {
         self.data.clear();
         self.data.resize(self.width * self.height, c);
+
+        let (r, g, b) = c.to_u8();
+        self.send_message(Message::Clear(r, g, b))
     }
 
     pub fn set_pixel(&mut self, x: usize, y: usize, c: Color) {
         self.rows_mut().skip(y).next().unwrap()[x] = c;
+
+        let (r, g, b) = c.to_u8();
+        self.send_message(Message::SetPixel(x as i32, y as i32, r, g, b))
     }
 
     pub fn get_pixel(&self, x: usize, y: usize) -> Color {
@@ -69,25 +90,20 @@ impl Canvas {
                 if i > 0 {
                     write!(writer, " ")?;
                 }
-                write!(
-                    writer,
-                    "{}",
-                    (pixel.red().max(0.0).min(1.0) * 255.0).round() as u8
-                )?;
-                write!(
-                    writer,
-                    " {}",
-                    (pixel.green().max(0.0).min(1.0) * 255.0).round() as u8
-                )?;
-                write!(
-                    writer,
-                    " {}",
-                    (pixel.blue().max(0.0).min(1.0) * 255.0).round() as u8
-                )?;
+                let (r, g, b) = pixel.to_u8();
+                write!(writer, "{}", r)?;
+                write!(writer, " {}", g)?;
+                write!(writer, " {}", b)?;
             }
             write!(writer, "\n")?;
         }
         Ok(())
+    }
+
+    fn send_message(&self, msg: Message) {
+        for tx in &self.listeners {
+            tx.send(msg).unwrap();
+        }
     }
 }
 
