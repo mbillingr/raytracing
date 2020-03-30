@@ -25,10 +25,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dea0c0405123bba743ee3f91f49b1c7cfb684eef0da0a50110f758ccf24cdff0"
 
 [[package]]
+name = "piston-float"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f900be47e312e126cc71d35548e8e31edd3901b92ab82d1c4c4757e6b5526564"
+
+[[package]]
+name = "quaternion"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "098443236d1445368525aa1874295cb9d9fc7699b52907c78692f0b18bd8c216"
+dependencies = [
+ "vecmath",
+]
+
+[[package]]
 name = "raytracing"
 version = "0.1.0"
 dependencies = [
+ "quaternion",
  "sdl2",
+ "vecmath",
 ]
 
 [[package]]
@@ -51,4 +68,13 @@ checksum = "c2e1deb61ff274d29fb985017d4611d4004b113676eaa9c06754194caf82094e"
 dependencies = [
  "cfg-if",
  "libc",
+]
+
+[[package]]
+name = "vecmath"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "956ae1e0d85bca567dee1dcf87fb1ca2e792792f66f87dced8381f99cd91156a"
+dependencies = [
+ "piston-float",
 ]

@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 sdl2 = "0.33"
+quaternion = "0.4"
+vecmath = "1.0"

@@ -1,4 +1,8 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
+use vecmath::{
+    vec3_cross, vec4_add, vec4_dot, vec4_inv_len, vec4_len, vec4_neg, vec4_normalized, vec4_scale,
+    vec4_square_len, vec4_sub, Vector4,
+};
 
 pub fn tuple(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>, w: impl Into<f64>) -> Tuple {
     Tuple::new(x.into(), y.into(), z.into(), w.into())
@@ -13,11 +17,11 @@ pub fn vector(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>) -> Tuple 
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Tuple(f64, f64, f64, f64);
+pub struct Tuple(Vector4<f64>);
 
 impl Tuple {
     pub fn new(x: f64, y: f64, z: f64, w: f64) -> Self {
-        Tuple(x, y, z, w)
+        Tuple([x, y, z, w])
     }
 
     pub fn point(x: f64, y: f64, z: f64) -> Self {
@@ -29,19 +33,19 @@ impl Tuple {
     }
 
     pub fn x(&self) -> f64 {
-        self.0
+        self.0[0]
     }
 
     pub fn y(&self) -> f64 {
-        self.1
+        self.0[1]
     }
 
     pub fn z(&self) -> f64 {
-        self.2
+        self.0[2]
     }
 
     pub fn w(&self) -> f64 {
-        self.3
+        self.0[3]
     }
 
     pub fn is_point(&self) -> bool {
@@ -53,51 +57,46 @@ impl Tuple {
     }
 
     pub fn add(&self, other: &Self) -> Self {
-        Tuple::new(
-            self.0 + other.0,
-            self.1 + other.1,
-            self.2 + other.2,
-            self.3 + other.3,
-        )
+        Tuple(vec4_add(self.0, other.0))
     }
 
     pub fn sub(&self, other: &Self) -> Self {
-        Tuple::new(
-            self.0 - other.0,
-            self.1 - other.1,
-            self.2 - other.2,
-            self.3 - other.3,
-        )
+        Tuple(vec4_sub(self.0, other.0))
     }
 
     pub fn neg(&self) -> Self {
-        Tuple::new(-self.0, -self.1, -self.2, -self.3)
+        Tuple(vec4_neg(self.0))
     }
 
     pub fn scale(&self, s: f64) -> Self {
-        Tuple::new(self.0 * s, self.1 * s, self.2 * s, self.3 * s)
+        Tuple(vec4_scale(self.0, s))
     }
 
-    pub fn magnitude(&self) -> f64 {
-        self.dot(self).sqrt()
+    pub fn len(&self) -> f64 {
+        vec4_len(self.0)
     }
 
-    pub fn normalize(&self) -> Self {
-        self.scale(1.0 / self.magnitude())
+    pub fn square_len(&self) -> f64 {
+        vec4_square_len(self.0)
+    }
+
+    pub fn inv_len(&self) -> f64 {
+        vec4_inv_len(self.0)
+    }
+
+    pub fn normalized(&self) -> Self {
+        Tuple(vec4_normalized(self.0))
     }
 
     pub fn dot(&self, rhs: &Self) -> f64 {
-        self.0 * rhs.0 + self.1 * rhs.1 + self.2 * rhs.2 + self.3 * rhs.3
+        vec4_dot(self.0, rhs.0)
     }
 
     pub fn cross(&self, rhs: &Self) -> Self {
         debug_assert!(self.is_vector());
         debug_assert!(rhs.is_vector());
-        vector(
-            self.y() * rhs.z() - self.z() * rhs.y(),
-            self.z() * rhs.x() - self.x() * rhs.z(),
-            self.x() * rhs.y() - self.y() * rhs.x(),
-        )
+        let v3 = vec3_cross([self.x(), self.y(), self.z()], [rhs.x(), rhs.y(), rhs.z()]);
+        vector(v3[0], v3[1], v3[2])
     }
 }
 
@@ -280,42 +279,42 @@ mod tests {
     #[test]
     fn magnitude_unit_x() {
         let v = vector(1, 0, 0);
-        assert_eq!(v.magnitude(), 1.0);
+        assert_eq!(v.len(), 1.0);
     }
 
     /// Magnitude of vector(0, 1, 0)
     #[test]
     fn magnitude_unit_y() {
         let v = vector(0, 1, 0);
-        assert_eq!(v.magnitude(), 1.0);
+        assert_eq!(v.len(), 1.0);
     }
 
     /// Magnitude of vector(0, 0, 1)
     #[test]
     fn magnitude_unit_z() {
         let v = vector(0, 0, 1);
-        assert_eq!(v.magnitude(), 1.0);
+        assert_eq!(v.len(), 1.0);
     }
 
     /// Magnitude of vector(1, 2, 3)
     #[test]
     fn magnitude_positive_vec() {
         let v = vector(1, 2, 3);
-        assert_eq!(v.magnitude(), 14f64.sqrt());
+        assert_eq!(v.len(), 14f64.sqrt());
     }
 
     /// Magnitude of vector(-1, -2, -3)
     #[test]
     fn magnitude_negative_vec() {
         let v = vector(-1, -2, -3);
-        assert_eq!(v.magnitude(), 14f64.sqrt());
+        assert_eq!(v.len(), 14f64.sqrt());
     }
 
     /// Normalization of vector(4, 0, 0)
     #[test]
     fn normalize_unit_x() {
         let v = vector(4, 0, 0);
-        assert_eq!(v.normalize(), vector(1, 0, 0));
+        assert_eq!(v.normalized(), vector(1, 0, 0));
     }
 
     /// Normalization of vector(1, 2, 3)
@@ -323,7 +322,7 @@ mod tests {
     fn normalize_vec() {
         let v = vector(1, 2, 3);
         assert_eq!(
-            v.normalize(),
+            v.normalized(),
             vector(1.0 / 14f64.sqrt(), 2.0 / 14f64.sqrt(), 3.0 / 14f64.sqrt())
         );
     }
@@ -332,7 +331,7 @@ mod tests {
     #[test]
     fn magnitude_of_normalized_vector() {
         let v = vector(1, 2, 3);
-        assert_eq!(v.normalize().magnitude(), 1.0);
+        assert_eq!(v.normalized().len(), 1.0);
     }
 
     /// Dot product of two tuples
