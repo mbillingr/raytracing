@@ -18,7 +18,7 @@
            (given (var <- val) ...)
            (when items ...)
            (then (a cmp b) ...))
-         (let ((var val) ...)
+         (let* ((var val) ...)
            (test "when" items ...
              (let ((a-val a)
                    (b-val b))
