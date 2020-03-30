@@ -5,24 +5,24 @@
           (raytrace generic))
   (begin
     (define-syntax test
-      (syntax-rules (given then <-)
+      (syntax-rules (given then <- == !=)
         ((test description
            (given (var <- val) ...)
-           (then (a == b) ...))
+           (then (a cmp b) ...))
          (test description
            (given (var <- val) ...)
            (when)
-           (then (a == b) ...)))
+           (then (a cmp b) ...)))
 
         ((test description
            (given (var <- val) ...)
            (when items ...)
-           (then (a == b) ...))
+           (then (a cmp b) ...))
          (let ((var val) ...)
            (test "when" items ...
              (let ((a-val a)
                    (b-val b))
-               (if (almost-equal? a-val b-val)
+               (if (test "compare" cmp a-val b-val)
                    'pass
                    (begin
                      (display "FAIL: ")
@@ -30,12 +30,16 @@
                      (newline)
                      (display "    ")
                      (display 'a)
-                     (display " == ")
+                     (display " ")
+                     (display 'cmp)
+                     (display " ")
                      (display 'b)
                      (newline)
                      (display "    ")
                      (print a-val)
-                     (display " == ")
+                     (display " ")
+                     (display 'cmp)
+                     (display " ")
                      (print b-val)
                      (newline)
                      (error description `(almost-equal? a b)))))
@@ -43,6 +47,12 @@
              (display "PASS: ")
              (display description)
              (newline))))
+
+        ((test "compare" == a b)
+         (almost-equal? a b))
+
+        ((test "compare" != a b)
+         (not (almost-equal? a b)))
 
         ((test "when" body)
          body)
