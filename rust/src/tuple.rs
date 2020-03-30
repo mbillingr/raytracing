@@ -17,7 +17,7 @@ pub fn vector(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>) -> Tuple 
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Tuple(Vector4<f64>);
+pub struct Tuple(pub(crate) Vector4<f64>);
 
 impl Tuple {
     pub fn new(x: f64, y: f64, z: f64, w: f64) -> Self {
