@@ -1,0 +1,10 @@
+(define-library (raytrace transformations)
+  (export translation)
+  (import (scheme base)
+          (raytrace matrix))
+  (begin
+    (define (translation dx dy dz)
+      (matrix (1 0 0 dx)
+              (0 1 0 dy)
+              (0 0 1 dz)
+              (0 0 0 1)))))

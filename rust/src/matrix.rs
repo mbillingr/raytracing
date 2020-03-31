@@ -1,9 +1,13 @@
-use crate::tuple::Tuple;
+use crate::tuple::{vector, Tuple};
 use std::ops::{Index, Mul};
 use vecmath::{
     col_mat4_mul, col_mat4_transform, mat4_det, mat4_inv, mat4_transposed, row_mat4_mul,
-    row_mat4_transform, Matrix4,
+    row_mat4_transform, vec3_add, Matrix4, Vector3,
 };
+
+pub fn translate(dx: impl Into<f64>, dy: impl Into<f64>, dz: impl Into<f64>) -> Matrix {
+    Matrix::translate(dx.into(), dy.into(), dz.into())
+}
 
 #[macro_export]
 macro_rules! matrix {
@@ -25,14 +29,29 @@ pub enum Matrix {
     Identity,
     Full(Matrix4<f64>),
     Transposed(Matrix4<f64>),
+    Translate(Vector3<f64>),
 }
 
 impl Matrix {
+    pub fn identity() -> Self {
+        Matrix::Identity
+    }
+
+    pub fn translate(dx: f64, dy: f64, dz: f64) -> Self {
+        Matrix::Translate([dx, dy, dz])
+    }
+
     pub fn transpose(self) -> Self {
         match self {
             Matrix::Identity => Matrix::Identity,
             Matrix::Full(mat) => Matrix::Transposed(mat),
             Matrix::Transposed(mat) => Matrix::Full(mat),
+            Matrix::Translate([dx, dy, dz]) => matrix![
+                1.0, 0.0, 0.0, 0.0;
+                0.0, 1.0, 0.0, 0.0;
+                0.0, 0.0, 1.0, 0.0;
+                 dx,  dy,  dz, 1.0;
+            ],
         }
     }
 
@@ -41,6 +60,7 @@ impl Matrix {
             Matrix::Identity => true,
             Matrix::Full(m) => mat4_det(*m) != 0.0,
             Matrix::Transposed(m) => mat4_det(*m) != 0.0,
+            Matrix::Translate(_) => true,
         }
     }
 
@@ -49,6 +69,7 @@ impl Matrix {
             Matrix::Identity => Matrix::Identity,
             Matrix::Full(m) => Matrix::Full(mat4_inv(m)),
             Matrix::Transposed(m) => Matrix::Transposed(mat4_inv(m)),
+            Matrix::Translate([dx, dy, dz]) => Matrix::Translate([-dx, -dy, -dz]),
         }
     }
 
@@ -65,6 +86,9 @@ impl Matrix {
                 m[0][0], m[1][0], m[2][0], m[3][0], m[0][1], m[1][1], m[2][1], m[3][1], m[0][2],
                 m[1][2], m[2][2], m[3][2], m[0][3], m[1][3], m[2][3], m[3][3],
             ],
+            Matrix::Translate([dx, dy, dz]) => [
+                1.0, 0.0, 0.0, dx, 0.0, 1.0, 0.0, dy, 0.0, 0.0, 1.0, dz, 0.0, 0.0, 0.0, 1.0,
+            ],
         }
     }
 }
@@ -77,6 +101,9 @@ impl Index<(usize, usize)> for Matrix {
             Matrix::Identity => &0.0,
             Matrix::Full(mat) => &mat[i][j],
             Matrix::Transposed(mat) => &mat[j][i],
+            Matrix::Translate(_) if i == j => &1.0,
+            Matrix::Translate(v) if j == 3 => &v[i],
+            Matrix::Translate(_) => &0.0,
         }
     }
 }
@@ -91,6 +118,21 @@ impl Mul for Matrix {
             (Transposed(a), Transposed(b)) => Transposed(col_mat4_mul(a, b)),
             (Transposed(a), Full(b)) => Full(row_mat4_mul(mat4_transposed(a), b)),
             (Full(a), Transposed(b)) => Full(row_mat4_mul(a, mat4_transposed(b))),
+            (Translate(a), Translate(b)) => Translate(vec3_add(a, b)),
+            (Full(a), Translate([x, y, z])) => matrix![
+                a[0][0], a[0][1], a[0][2], a[0][0] * x;
+                a[1][0], a[1][1], a[1][2], a[1][0] * y;
+                a[2][0], a[2][1], a[2][2], a[2][0] * z;
+                a[3][0], a[3][1], a[3][2], a[3][0];
+            ],
+            (Transposed(a), Translate([x, y, z])) => matrix![
+                a[0][0], a[1][0], a[2][0], a[0][0] * x;
+                a[0][1], a[1][1], a[2][1], a[0][1] * y;
+                a[0][2], a[1][2], a[2][2], a[0][2] * z;
+                a[0][3], a[1][3], a[2][3], a[0][3];
+            ],
+            (a @ Translate(_), b @ Full(_)) => (b.transpose() * a.transpose()).transpose(),
+            (a @ Translate(_), b @ Transposed(_)) => (b.transpose() * a.transpose()).transpose(),
         }
     }
 }
@@ -103,6 +145,8 @@ impl Mul<Tuple> for Matrix {
             Identity => rhs,
             Full(mat) => Tuple(row_mat4_transform(mat, rhs.0)),
             Transposed(mat) => Tuple(col_mat4_transform(mat, rhs.0)),
+            Translate([dx, dy, dz]) if rhs.is_point() => rhs + vector(dx, dy, dz),
+            Translate(_) => rhs,
         }
     }
 }
@@ -111,7 +155,7 @@ impl Mul<Tuple> for Matrix {
 mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
-    use crate::tuple::tuple;
+    use crate::tuple::{point, tuple};
 
     /// Only for testing, implement an inaccurate PartialEq
     impl PartialEq for Matrix {
@@ -300,14 +344,14 @@ mod tests {
             2, 4, 8, 16;
             4, 8, 16, 32;
         ];
-        assert_eq!(Matrix::Identity * a * Matrix::Identity, a);
+        assert_eq!(Matrix::identity() * a * Matrix::identity(), a);
     }
 
     /// Multiplying the identity matrix by a tuple
     #[test]
     fn matrix_transform_ident() {
         let a = tuple(1, 2, 4, 3);
-        assert_eq!(Matrix::Identity * a, a);
+        assert_eq!(Matrix::identity() * a, a);
     }
 
     /// Transposing a matrix
@@ -338,7 +382,7 @@ mod tests {
     /// Transposing the identity matrix
     #[test]
     fn matrix_transpose_identity() {
-        assert_eq!(Matrix::Identity.transpose(), Matrix::Identity);
+        assert_eq!(Matrix::identity().transpose(), Matrix::identity());
     }
 
     /// Testing an invertible matrix for invertibility
@@ -413,5 +457,30 @@ mod tests {
             6, -2,  0,  5;
         ];
         assert_eq!((a * b) * b.inverse(), a);
+    }
+
+    /// Multiplying by a translation matrix
+    #[test]
+    fn translate_point() {
+        let transform = translate(5, -3, 2);
+        let p = point(-3, 4, 5);
+        assert_eq!(transform * p, point(2, 1, 7));
+    }
+
+    /// Multiplying by the inverse of a translation matrix
+    #[test]
+    fn translate_inv_point() {
+        let transform = translate(5, -3, 2);
+        let inv = transform.inverse();
+        let p = point(-3, 4, 5);
+        assert_eq!(inv * p, point(-8, 7, 3));
+    }
+
+    /// Translation does not affect vectors
+    #[test]
+    fn translate_vector() {
+        let transform = translate(5, -3, 2);
+        let v = vector(-3, 4, 5);
+        assert_eq!(transform * v, v);
     }
 }
