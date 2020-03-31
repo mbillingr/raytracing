@@ -1,12 +1,16 @@
-use crate::tuple::{vector, Tuple};
+use crate::tuple::{tuple, vector, Tuple};
 use std::ops::{Index, Mul};
 use vecmath::{
     col_mat4_mul, col_mat4_transform, mat4_det, mat4_inv, mat4_transposed, row_mat4_mul,
-    row_mat4_transform, vec3_add, Matrix4, Vector3,
+    row_mat4_transform, vec3_add, vec3_mul, Matrix4, Vector3,
 };
 
-pub fn translate(dx: impl Into<f64>, dy: impl Into<f64>, dz: impl Into<f64>) -> Matrix {
+pub fn translation(dx: impl Into<f64>, dy: impl Into<f64>, dz: impl Into<f64>) -> Matrix {
     Matrix::translate(dx.into(), dy.into(), dz.into())
+}
+
+pub fn scaling(sx: impl Into<f64>, sy: impl Into<f64>, sz: impl Into<f64>) -> Matrix {
+    Matrix::scale(sx.into(), sy.into(), sz.into())
 }
 
 #[macro_export]
@@ -30,6 +34,7 @@ pub enum Matrix {
     Full(Matrix4<f64>),
     Transposed(Matrix4<f64>),
     Translate(Vector3<f64>),
+    Scale(Vector3<f64>),
 }
 
 impl Matrix {
@@ -39,6 +44,10 @@ impl Matrix {
 
     pub fn translate(dx: f64, dy: f64, dz: f64) -> Self {
         Matrix::Translate([dx, dy, dz])
+    }
+
+    pub fn scale(sx: f64, sy: f64, sz: f64) -> Self {
+        Matrix::Scale([sx, sy, sz])
     }
 
     pub fn transpose(self) -> Self {
@@ -52,6 +61,7 @@ impl Matrix {
                 0.0, 0.0, 1.0, 0.0;
                  dx,  dy,  dz, 1.0;
             ],
+            Matrix::Scale(s) => Matrix::Scale(s),
         }
     }
 
@@ -61,6 +71,7 @@ impl Matrix {
             Matrix::Full(m) => mat4_det(*m) != 0.0,
             Matrix::Transposed(m) => mat4_det(*m) != 0.0,
             Matrix::Translate(_) => true,
+            Matrix::Scale([sx, sy, sz]) => *sx == 0.0 && *sy == 0.0 && *sz == 0.0,
         }
     }
 
@@ -70,6 +81,7 @@ impl Matrix {
             Matrix::Full(m) => Matrix::Full(mat4_inv(m)),
             Matrix::Transposed(m) => Matrix::Transposed(mat4_inv(m)),
             Matrix::Translate([dx, dy, dz]) => Matrix::Translate([-dx, -dy, -dz]),
+            Matrix::Scale([sx, sy, sz]) => Matrix::Scale([1.0 / sx, 1.0 / sy, 1.0 / sz]),
         }
     }
 
@@ -89,6 +101,9 @@ impl Matrix {
             Matrix::Translate([dx, dy, dz]) => [
                 1.0, 0.0, 0.0, dx, 0.0, 1.0, 0.0, dy, 0.0, 0.0, 1.0, dz, 0.0, 0.0, 0.0, 1.0,
             ],
+            Matrix::Scale([sx, sy, sz]) => [
+                sx, 0.0, 0.0, 0.0, 0.0, sy, 0.0, 0.0, 0.0, 0.0, sz, 0.0, 0.0, 0.0, 0.0, 1.0,
+            ],
         }
     }
 }
@@ -104,6 +119,9 @@ impl Index<(usize, usize)> for Matrix {
             Matrix::Translate(_) if i == j => &1.0,
             Matrix::Translate(v) if j == 3 => &v[i],
             Matrix::Translate(_) => &0.0,
+            Matrix::Scale(_) if i == 3 && j == 3 => &1.0,
+            Matrix::Scale(s) if i == j => &s[i],
+            Matrix::Scale(_) => &0.0,
         }
     }
 }
@@ -131,8 +149,35 @@ impl Mul for Matrix {
                 a[0][2], a[1][2], a[2][2], a[0][2] * z;
                 a[0][3], a[1][3], a[2][3], a[0][3];
             ],
+            (Scale(a), Scale(b)) => Scale(vec3_mul(a, b)),
+            (Full(a), Scale([x, y, z])) => matrix![
+                a[0][0] * x, a[0][1], a[0][2], a[0][0];
+                a[1][0], a[1][1] * y, a[1][2], a[1][0];
+                a[2][0], a[2][1], a[2][2] * z, a[2][0];
+                a[3][0], a[3][1], a[3][2], a[3][0];
+            ],
+            (Transposed(a), Scale([x, y, z])) => matrix![
+                a[0][0] * x, a[1][0], a[2][0], a[0][0];
+                a[0][1], a[1][1] * y, a[2][1], a[0][1];
+                a[0][2], a[1][2], a[2][2] * z, a[0][2];
+                a[0][3], a[1][3], a[2][3], a[0][3];
+            ],
+            (Translate([dx, dy, dz]), Scale([sx, sy, sz])) => matrix![
+                sx, 0.0, 0.0, dx;
+                0.0, sy, 0.0, dy;
+                0.0, 0.0, sz, dz;
+                0.0, 0.0, 0.0, 1.0;
+            ],
+            (Scale([sx, sy, sz]), Translate([dx, dy, dz])) => matrix![
+                sx, 0.0, 0.0, sx * dx;
+                0.0, sy, 0.0, sy * dy;
+                0.0, 0.0, sz, sz * dz;
+                0.0, 0.0, 0.0, 1.0;
+            ],
             (a @ Translate(_), b @ Full(_)) => (b.transpose() * a.transpose()).transpose(),
             (a @ Translate(_), b @ Transposed(_)) => (b.transpose() * a.transpose()).transpose(),
+            (a @ Scale(_), b @ Full(_)) => (b.transpose() * a.transpose()).transpose(),
+            (a @ Scale(_), b @ Transposed(_)) => (b.transpose() * a.transpose()).transpose(),
         }
     }
 }
@@ -147,6 +192,7 @@ impl Mul<Tuple> for Matrix {
             Transposed(mat) => Tuple(col_mat4_transform(mat, rhs.0)),
             Translate([dx, dy, dz]) if rhs.is_point() => rhs + vector(dx, dy, dz),
             Translate(_) => rhs,
+            Scale([sx, sy, sz]) => tuple(rhs.x() * sx, rhs.y() * sy, rhs.z() * sz, rhs.w()),
         }
     }
 }
@@ -462,7 +508,7 @@ mod tests {
     /// Multiplying by a translation matrix
     #[test]
     fn translate_point() {
-        let transform = translate(5, -3, 2);
+        let transform = translation(5, -3, 2);
         let p = point(-3, 4, 5);
         assert_eq!(transform * p, point(2, 1, 7));
     }
@@ -470,7 +516,7 @@ mod tests {
     /// Multiplying by the inverse of a translation matrix
     #[test]
     fn translate_inv_point() {
-        let transform = translate(5, -3, 2);
+        let transform = translation(5, -3, 2);
         let inv = transform.inverse();
         let p = point(-3, 4, 5);
         assert_eq!(inv * p, point(-8, 7, 3));
@@ -479,8 +525,41 @@ mod tests {
     /// Translation does not affect vectors
     #[test]
     fn translate_vector() {
-        let transform = translate(5, -3, 2);
+        let transform = translation(5, -3, 2);
         let v = vector(-3, 4, 5);
         assert_eq!(transform * v, v);
+    }
+
+    /// A scaling matrix applied to a point
+    #[test]
+    fn scale_point() {
+        let transform = scaling(2, 3, 4);
+        let p = point(-4, 6, 8);
+        assert_eq!(transform * p, point(-8, 18, 32));
+    }
+
+    /// A scaling matrix applied to a vector
+    #[test]
+    fn scale_vector() {
+        let transform = scaling(2, 3, 4);
+        let v = vector(-4, 6, 8);
+        assert_eq!(transform * v, vector(-8, 18, 32));
+    }
+
+    /// Multiplying by the inverse of a scaling matrix
+    #[test]
+    fn scale_inv_vector() {
+        let transform = scaling(2, 3, 4);
+        let inv = transform.inverse();
+        let v = vector(-4, 6, 8);
+        assert_eq!(inv * v, vector(-2, 2, 2));
+    }
+
+    /// Reflection is scaling by a negative value
+    #[test]
+    fn reflect_point() {
+        let transform = scaling(-1, 1, 1);
+        let p = point(2, 3, 4);
+        assert_eq!(transform * p, point(-2, 3, 4));
     }
 }

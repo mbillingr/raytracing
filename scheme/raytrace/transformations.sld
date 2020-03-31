@@ -1,5 +1,5 @@
 (define-library (raytrace transformations)
-  (export translation)
+  (export scaling translation)
   (import (scheme base)
           (raytrace matrix))
   (begin
@@ -7,4 +7,10 @@
       (matrix (1 0 0 dx)
               (0 1 0 dy)
               (0 0 1 dz)
-              (0 0 0 1)))))
+              (0 0 0 1)))
+
+    (define (scaling sx sy sz)
+      (matrix (sx  0  0 0)
+              ( 0 sy  0 0)
+              ( 0  0 sz 0)
+              ( 0  0  0 1)))))
