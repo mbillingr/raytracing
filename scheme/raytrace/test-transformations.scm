@@ -98,3 +98,23 @@
   (given (transform <- (shearing 0 0 0 0 0 1))
          (p <- (point 2 3 4)))
   (then ((m4* transform p) == (point 2 3 7))))
+
+(test "Individual transformations are applied in sequence"
+  (given (p <- (point 1 0 1))
+         (A <- (rotation-x (/ PI 2)))
+         (B <- (scaling 5 5 5))
+         (C <- (translation 10 5 7)))
+  (when (p2 <- (m4* A p))
+        (p3 <- (m4* B p2))
+        (p4 <- (m4* C p3)))
+  (then (p2 == (point 1 -1 0))
+        (p3 == (point 5 -5 0))
+        (p4 == (point 15 0 7))))
+
+(test "Chained transformations must be applied in reverse order"
+  (given (p <- (point 1 0 1))
+         (A <- (rotation-x (/ PI 2)))
+         (B <- (scaling 5 5 5))
+         (C <- (translation 10 5 7)))
+  (when (T <- (m4* C (m4* B A))))
+  (then ((m4* T p) == (point 15 0 7))))

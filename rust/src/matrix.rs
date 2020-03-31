@@ -22,23 +22,23 @@ macro_rules! matrix {
 }
 
 pub fn translation(dx: impl Into<f64>, dy: impl Into<f64>, dz: impl Into<f64>) -> Matrix {
-    Matrix::translate(dx.into(), dy.into(), dz.into())
+    Matrix::Identity.translate(dx.into(), dy.into(), dz.into())
 }
 
 pub fn scaling(sx: impl Into<f64>, sy: impl Into<f64>, sz: impl Into<f64>) -> Matrix {
-    Matrix::scale(sx.into(), sy.into(), sz.into())
+    Matrix::Identity.scale(sx.into(), sy.into(), sz.into())
 }
 
 pub fn rotation_x(phi: impl Into<f64>) -> Matrix {
-    Matrix::rotate(phi.into(), [1.0, 0.0, 0.0])
+    Matrix::Identity.rotate(phi.into(), [1.0, 0.0, 0.0])
 }
 
 pub fn rotation_y(phi: impl Into<f64>) -> Matrix {
-    Matrix::rotate(phi.into(), [0.0, 1.0, 0.0])
+    Matrix::Identity.rotate(phi.into(), [0.0, 1.0, 0.0])
 }
 
 pub fn rotation_z(phi: impl Into<f64>) -> Matrix {
-    Matrix::rotate(phi.into(), [0.0, 0.0, 1.0])
+    Matrix::Identity.rotate(phi.into(), [0.0, 0.0, 1.0])
 }
 
 pub fn shearing(
@@ -72,16 +72,16 @@ impl Matrix {
         Matrix::Identity
     }
 
-    pub fn translate(dx: f64, dy: f64, dz: f64) -> Self {
-        Matrix::Translate([dx, dy, dz])
+    pub fn translate(self, dx: f64, dy: f64, dz: f64) -> Self {
+        Matrix::Translate([dx, dy, dz]) * self
     }
 
-    pub fn scale(sx: f64, sy: f64, sz: f64) -> Self {
-        Matrix::Scale([sx, sy, sz])
+    pub fn scale(self, sx: f64, sy: f64, sz: f64) -> Self {
+        Matrix::Scale([sx, sy, sz]) * self
     }
 
-    pub fn rotate(phi: f64, axis: Vector3<f64>) -> Self {
-        Matrix::Rotate(quaternion::axis_angle(axis, phi))
+    pub fn rotate(self, phi: f64, axis: Vector3<f64>) -> Self {
+        Matrix::Rotate(quaternion::axis_angle(axis, phi)) * self
     }
 
     pub fn transpose(self) -> Self {
@@ -155,15 +155,15 @@ fn quat_to_mat(q: Quaternion<f64>) -> Matrix4<f64> {
             0.0,
         ],
         [
-            quat_to_mat_element(q, 0, 0),
-            quat_to_mat_element(q, 0, 1),
-            quat_to_mat_element(q, 0, 2),
+            quat_to_mat_element(q, 1, 0),
+            quat_to_mat_element(q, 1, 1),
+            quat_to_mat_element(q, 1, 2),
             0.0,
         ],
         [
-            quat_to_mat_element(q, 0, 0),
-            quat_to_mat_element(q, 0, 1),
-            quat_to_mat_element(q, 0, 2),
+            quat_to_mat_element(q, 2, 0),
+            quat_to_mat_element(q, 2, 1),
+            quat_to_mat_element(q, 2, 2),
             0.0,
         ],
         [0.0, 0.0, 0.0, 1.0],
@@ -233,16 +233,16 @@ impl Mul for Matrix {
             ],
             (Scale(a), Scale(b)) => Scale(vec3_mul(a, b)),
             (Full(a), Scale([x, y, z])) => matrix![
-                a[0][0] * x, a[0][1], a[0][2], a[0][0];
-                a[1][0], a[1][1] * y, a[1][2], a[1][0];
-                a[2][0], a[2][1], a[2][2] * z, a[2][0];
-                a[3][0], a[3][1], a[3][2], a[3][0];
+                a[0][0] * x, a[0][1] * y, a[0][2] * z, a[0][0];
+                a[1][0] * x, a[1][1] * y, a[1][2] * z, a[1][0];
+                a[2][0] * x, a[2][1] * y, a[2][2] * z, a[2][0];
+                a[3][0] * x, a[3][1] * y, a[3][2] * z, a[3][0];
             ],
             (Transposed(a), Scale([x, y, z])) => matrix![
-                a[0][0] * x, a[1][0], a[2][0], a[0][0];
-                a[0][1], a[1][1] * y, a[2][1], a[0][1];
-                a[0][2], a[1][2], a[2][2] * z, a[0][2];
-                a[0][3], a[1][3], a[2][3], a[0][3];
+                a[0][0] * x, a[1][0] * y, a[2][0] * z, a[0][0];
+                a[0][1] * x, a[1][1] * y, a[2][1] * z, a[0][1];
+                a[0][2] * x, a[1][2] * y, a[2][2] * z, a[0][2];
+                a[0][3] * x, a[1][3] * y, a[2][3] * z, a[0][3];
             ],
             (Translate([dx, dy, dz]), Scale([sx, sy, sz])) => matrix![
                 sx, 0.0, 0.0, dx;
@@ -750,5 +750,41 @@ mod tests {
         let transform = shearing(0, 0, 0, 0, 0, 1);
         let p = point(2, 3, 4);
         assert_eq!(transform * p, point(2, 3, 7));
+    }
+
+    /// Individual transformations are applied in sequence
+    #[test]
+    fn transform_sequence(){
+        let p = point( 1, 0, 1);
+        let a = rotation_x( PI / 2.0);
+        let b = scaling(5, 5, 5);
+        let c = translation(10, 5, 7);
+
+        let p2 = a * p;
+        let p3 = b * p2;
+        let p4 = c * p3;
+
+        assert_eq!(p2, point(1, -1, 0));
+        assert_eq!(p3, point(5, -5, 0));
+        assert_eq!(p4, point(15, 0, 7));
+    }
+
+    /// Chained transformations must be applied in reverse order
+    #[test]
+    fn transform_chain(){
+        let p = point( 1, 0, 1);
+        let a = rotation_x( PI / 2.0);
+        let b = scaling(5, 5, 5);
+        let c = translation(10, 5, 7);
+
+        let t = c * b * a;
+        assert_eq!(t * p, point(15, 0, 7));
+
+        let t = Matrix::identity()
+            .rotate(PI/2.0, [1.0, 0.0, 0.0])
+            .scale(5.0, 5.0, 5.0)
+            .translate(10.0, 5.0, 7.0)
+        ;
+        assert_eq!(t * p, point(15, 0, 7));
     }
 }
