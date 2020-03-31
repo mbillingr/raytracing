@@ -1,4 +1,5 @@
 use crate::tuple::{tuple, vector, Tuple};
+use quaternion::Quaternion;
 use std::ops::{Index, Mul};
 use vecmath::{
     col_mat4_mul, col_mat4_transform, mat4_det, mat4_inv, mat4_transposed, row_mat4_mul,
@@ -11,6 +12,18 @@ pub fn translation(dx: impl Into<f64>, dy: impl Into<f64>, dz: impl Into<f64>) -
 
 pub fn scaling(sx: impl Into<f64>, sy: impl Into<f64>, sz: impl Into<f64>) -> Matrix {
     Matrix::scale(sx.into(), sy.into(), sz.into())
+}
+
+pub fn rotation_x(phi: impl Into<f64>) -> Matrix {
+    Matrix::rotate(phi.into(), [1.0, 0.0, 0.0])
+}
+
+pub fn rotation_y(phi: impl Into<f64>) -> Matrix {
+    Matrix::rotate(phi.into(), [0.0, 1.0, 0.0])
+}
+
+pub fn rotation_z(phi: impl Into<f64>) -> Matrix {
+    Matrix::rotate(phi.into(), [0.0, 0.0, 1.0])
 }
 
 #[macro_export]
@@ -35,6 +48,7 @@ pub enum Matrix {
     Transposed(Matrix4<f64>),
     Translate(Vector3<f64>),
     Scale(Vector3<f64>),
+    Rotate(Quaternion<f64>),
 }
 
 impl Matrix {
@@ -50,6 +64,10 @@ impl Matrix {
         Matrix::Scale([sx, sy, sz])
     }
 
+    pub fn rotate(phi: f64, axis: Vector3<f64>) -> Self {
+        Matrix::Rotate(quaternion::axis_angle(axis, phi))
+    }
+
     pub fn transpose(self) -> Self {
         match self {
             Matrix::Identity => Matrix::Identity,
@@ -62,6 +80,7 @@ impl Matrix {
                  dx,  dy,  dz, 1.0;
             ],
             Matrix::Scale(s) => Matrix::Scale(s),
+            Matrix::Rotate(q) => Matrix::Rotate(quaternion::conj(q)),
         }
     }
 
@@ -72,6 +91,7 @@ impl Matrix {
             Matrix::Transposed(m) => mat4_det(*m) != 0.0,
             Matrix::Translate(_) => true,
             Matrix::Scale([sx, sy, sz]) => *sx == 0.0 && *sy == 0.0 && *sz == 0.0,
+            Matrix::Rotate(_) => true,
         }
     }
 
@@ -82,6 +102,7 @@ impl Matrix {
             Matrix::Transposed(m) => Matrix::Transposed(mat4_inv(m)),
             Matrix::Translate([dx, dy, dz]) => Matrix::Translate([-dx, -dy, -dz]),
             Matrix::Scale([sx, sy, sz]) => Matrix::Scale([1.0 / sx, 1.0 / sy, 1.0 / sz]),
+            Matrix::Rotate(_) => self.transpose(),
         }
     }
 
@@ -104,7 +125,50 @@ impl Matrix {
             Matrix::Scale([sx, sy, sz]) => [
                 sx, 0.0, 0.0, 0.0, 0.0, sy, 0.0, 0.0, 0.0, 0.0, sz, 0.0, 0.0, 0.0, 0.0, 1.0,
             ],
+            Matrix::Rotate(q) => Matrix::Full(quat_to_mat(q)).into_flat(),
         }
+    }
+}
+
+fn quat_to_mat(q: Quaternion<f64>) -> Matrix4<f64> {
+    [
+        [
+            quat_to_mat_element(q, 0, 0),
+            quat_to_mat_element(q, 0, 1),
+            quat_to_mat_element(q, 0, 2),
+            0.0,
+        ],
+        [
+            quat_to_mat_element(q, 0, 0),
+            quat_to_mat_element(q, 0, 1),
+            quat_to_mat_element(q, 0, 2),
+            0.0,
+        ],
+        [
+            quat_to_mat_element(q, 0, 0),
+            quat_to_mat_element(q, 0, 1),
+            quat_to_mat_element(q, 0, 2),
+            0.0,
+        ],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+}
+
+fn quat_to_mat_element((r, [i, j, k]): Quaternion<f64>, row: usize, col: usize) -> f64 {
+    match (row, col) {
+        (0, 0) => 1.0 - 2.0 * (j * j + k * k),
+        (1, 1) => 1.0 - 2.0 * (i * i + k * k),
+        (2, 2) => 1.0 - 2.0 * (i * i + j * j),
+        (0, 1) => 2.0 * (i * j - k * r),
+        (1, 0) => 2.0 * (i * j + k * r),
+        (1, 2) => 2.0 * (j * k - i * r),
+        (2, 1) => 2.0 * (j * k + i * r),
+        (0, 2) => 2.0 * (i * k + j * r),
+        (2, 0) => 2.0 * (i * k - j * r),
+        (3, 3) => 1.0,
+        (3, _) => 0.0,
+        (_, 3) => 0.0,
+        _ => panic!("Invalid matrix element"),
     }
 }
 
@@ -122,6 +186,8 @@ impl Index<(usize, usize)> for Matrix {
             Matrix::Scale(_) if i == 3 && j == 3 => &1.0,
             Matrix::Scale(s) if i == j => &s[i],
             Matrix::Scale(_) => &0.0,
+            //Matrix::Rotate(q) => &quat_to_mat_element(*q, i, j),
+            Matrix::Rotate(_) => unimplemented!("Indexing into a rotation matrix is not implemented. Maybe convert to a full matrix first..."),
         }
     }
 }
@@ -178,6 +244,9 @@ impl Mul for Matrix {
             (a @ Translate(_), b @ Transposed(_)) => (b.transpose() * a.transpose()).transpose(),
             (a @ Scale(_), b @ Full(_)) => (b.transpose() * a.transpose()).transpose(),
             (a @ Scale(_), b @ Transposed(_)) => (b.transpose() * a.transpose()).transpose(),
+            (Rotate(a), Rotate(b)) => Rotate(quaternion::mul(a, b)),
+            (Rotate(q), b) => Full(quat_to_mat(q)) * b,
+            (a, Rotate(q)) => a * Full(quat_to_mat(q)),
         }
     }
 }
@@ -193,6 +262,10 @@ impl Mul<Tuple> for Matrix {
             Translate([dx, dy, dz]) if rhs.is_point() => rhs + vector(dx, dy, dz),
             Translate(_) => rhs,
             Scale([sx, sy, sz]) => tuple(rhs.x() * sx, rhs.y() * sy, rhs.z() * sz, rhs.w()),
+            Rotate(q) => {
+                let [x, y, z] = quaternion::rotate_vector(q, [rhs.x(), rhs.y(), rhs.z()]);
+                tuple(x, y, z, rhs.w())
+            }
         }
     }
 }
@@ -202,6 +275,7 @@ mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
     use crate::tuple::{point, tuple};
+    use std::f64::consts::PI;
 
     /// Only for testing, implement an inaccurate PartialEq
     impl PartialEq for Matrix {
@@ -561,5 +635,56 @@ mod tests {
         let transform = scaling(-1, 1, 1);
         let p = point(2, 3, 4);
         assert_eq!(transform * p, point(-2, 3, 4));
+    }
+
+    /// Rotating a point around the x axis
+    #[test]
+    fn rotate_x_point() {
+        let p = point(0, 1, 0);
+        let half_quarter = rotation_x(PI / 4.0);
+        let full_quarter = rotation_x(PI / 2.0);
+        assert_eq!(
+            half_quarter * p,
+            point(0, f64::sqrt(2.0) / 2.0, f64::sqrt(2.0) / 2.0)
+        );
+        assert_eq!(full_quarter * p, point(0, 0, 1));
+    }
+
+    /// The inverse of an x-rotation rotates in the opposite direction
+    #[test]
+    fn rotate_inv_x_point() {
+        let p = point(0, 1, 0);
+        let half_quarter = rotation_x(PI / 4.0);
+        let inv = half_quarter.inverse();
+        assert_eq!(
+            inv * p,
+            point(0, f64::sqrt(2.0) / 2.0, -f64::sqrt(2.0) / 2.0)
+        );
+    }
+
+    /// Rotating a point around the y axis
+    #[test]
+    fn rotate_y_point() {
+        let p = point(0, 0, 1);
+        let half_quarter = rotation_y(PI / 4.0);
+        let full_quarter = rotation_y(PI / 2.0);
+        assert_eq!(
+            half_quarter * p,
+            point(f64::sqrt(2.0) / 2.0, 0, f64::sqrt(2.0) / 2.0)
+        );
+        assert_eq!(full_quarter * p, point(1, 0, 0));
+    }
+
+    /// Rotating a point around the z axis
+    #[test]
+    fn rotate_z_point() {
+        let p = point(0, 1, 0);
+        let half_quarter = rotation_z(PI / 4.0);
+        let full_quarter = rotation_z(PI / 2.0);
+        assert_eq!(
+            half_quarter * p,
+            point(-f64::sqrt(2.0) / 2.0, f64::sqrt(2.0) / 2.0, 0)
+        );
+        assert_eq!(full_quarter * p, point(-1, 0, 0));
     }
 }
