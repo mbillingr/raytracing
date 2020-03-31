@@ -68,3 +68,33 @@
          (full-quarter <- (rotation-z (/ PI 2))))
   (then ((m4* half-quarter p) == (point (/ SQRT2 -2) (/ SQRT2 2) 0))
         ((m4* full-quarter p) == (point -1 0 0))))
+
+(test "A shearing transformation moves x in proportion to y"
+  (given (transform <- (shearing 1 0 0 0 0 0))
+         (p <- (point 2 3 4)))
+  (then ((m4* transform p) == (point 5 3 4))))
+
+(test "A shearing transformation moves x in proportion to z"
+  (given (transform <- (shearing 0 1 0 0 0 0))
+         (p <- (point 2 3 4)))
+  (then ((m4* transform p) == (point 6 3 4))))
+
+(test "A shearing transformation moves y in proportion to x"
+  (given (transform <- (shearing 0 0 1 0 0 0))
+         (p <- (point 2 3 4)))
+  (then ((m4* transform p) == (point 2 5 4))))
+
+(test "A shearing transformation moves y in proportion to z"
+  (given (transform <- (shearing 0 0 0 1 0 0))
+         (p <- (point 2 3 4)))
+  (then ((m4* transform p) == (point 2 7 4))))
+
+(test "A shearing transformation moves z in proportion to x"
+  (given (transform <- (shearing 0 0 0 0 1 0))
+         (p <- (point 2 3 4)))
+  (then ((m4* transform p) == (point 2 3 6))))
+
+(test "A shearing transformation moves z in proportion to y"
+  (given (transform <- (shearing 0 0 0 0 0 1))
+         (p <- (point 2 3 4)))
+  (then ((m4* transform p) == (point 2 3 7))))

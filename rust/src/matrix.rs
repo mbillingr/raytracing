@@ -6,6 +6,21 @@ use vecmath::{
     row_mat4_transform, vec3_add, vec3_mul, Matrix4, Vector3,
 };
 
+#[macro_export]
+macro_rules! matrix {
+    ($a:expr, $b:expr, $c:expr, $d:expr;
+     $e:expr, $f:expr, $g:expr, $h:expr;
+     $i:expr, $j:expr, $k:expr, $l:expr;
+     $m:expr, $n:expr, $o:expr, $p:expr$(;)?) => {
+        Matrix::Full([
+            [$a as f64, $b as f64, $c as f64, $d as f64],
+            [$e as f64, $f as f64, $g as f64, $h as f64],
+            [$i as f64, $j as f64, $k as f64, $l as f64],
+            [$m as f64, $n as f64, $o as f64, $p as f64],
+        ])
+    };
+}
+
 pub fn translation(dx: impl Into<f64>, dy: impl Into<f64>, dz: impl Into<f64>) -> Matrix {
     Matrix::translate(dx.into(), dy.into(), dz.into())
 }
@@ -26,19 +41,20 @@ pub fn rotation_z(phi: impl Into<f64>) -> Matrix {
     Matrix::rotate(phi.into(), [0.0, 0.0, 1.0])
 }
 
-#[macro_export]
-macro_rules! matrix {
-    ($a:expr, $b:expr, $c:expr, $d:expr;
-     $e:expr, $f:expr, $g:expr, $h:expr;
-     $i:expr, $j:expr, $k:expr, $l:expr;
-     $m:expr, $n:expr, $o:expr, $p:expr$(;)?) => {
-        Matrix::Full([
-            [$a as f64, $b as f64, $c as f64, $d as f64],
-            [$e as f64, $f as f64, $g as f64, $h as f64],
-            [$i as f64, $j as f64, $k as f64, $l as f64],
-            [$m as f64, $n as f64, $o as f64, $p as f64],
-        ])
-    };
+pub fn shearing(
+    xy: impl Into<f64>,
+    xz: impl Into<f64>,
+    yx: impl Into<f64>,
+    yz: impl Into<f64>,
+    zx: impl Into<f64>,
+    zy: impl Into<f64>,
+) -> Matrix {
+    matrix![
+        1, xy.into(), xz.into(), 0;
+        yx.into(), 1, yz.into(), 0;
+        zx.into(), zy.into(), 1, 0;
+        0, 0, 0, 1;
+    ]
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -686,5 +702,53 @@ mod tests {
             point(-f64::sqrt(2.0) / 2.0, f64::sqrt(2.0) / 2.0, 0)
         );
         assert_eq!(full_quarter * p, point(-1, 0, 0));
+    }
+
+    /// A shearing transformation moves x in proportion to y
+    #[test]
+    fn shear_xy() {
+        let transform = shearing(1, 0, 0, 0, 0, 0);
+        let p = point(2, 3, 4);
+        assert_eq!(transform * p, point(5, 3, 4));
+    }
+
+    /// A shearing transformation moves x in proportion to z
+    #[test]
+    fn shear_xz() {
+        let transform = shearing(0, 1, 0, 0, 0, 0);
+        let p = point(2, 3, 4);
+        assert_eq!(transform * p, point(6, 3, 4));
+    }
+
+    /// A shearing transformation moves y in proportion to x
+    #[test]
+    fn shear_yx() {
+        let transform = shearing(0, 0, 1, 0, 0, 0);
+        let p = point(2, 3, 4);
+        assert_eq!(transform * p, point(2, 5, 4));
+    }
+
+    /// A shearing transformation moves y in proportion to z
+    #[test]
+    fn shear_yz() {
+        let transform = shearing(0, 0, 0, 1, 0, 0);
+        let p = point(2, 3, 4);
+        assert_eq!(transform * p, point(2, 7, 4));
+    }
+
+    /// A shearing transformation moves z in proportion to x
+    #[test]
+    fn shear_zx() {
+        let transform = shearing(0, 0, 0, 0, 1, 0);
+        let p = point(2, 3, 4);
+        assert_eq!(transform * p, point(2, 3, 6));
+    }
+
+    /// A shearing transformation moves z in proportion to y
+    #[test]
+    fn shear_zy() {
+        let transform = shearing(0, 0, 0, 0, 0, 1);
+        let p = point(2, 3, 4);
+        assert_eq!(transform * p, point(2, 3, 7));
     }
 }

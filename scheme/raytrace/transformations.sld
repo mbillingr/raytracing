@@ -1,6 +1,6 @@
 (define-library (raytrace transformations)
   (export rotation-x rotation-y rotation-z
-          scaling translation)
+          scaling shearing translation)
   (import (scheme base)
           (scheme inexact)
           (raytrace matrix))
@@ -33,4 +33,10 @@
       (matrix ((cos phi) (- (sin phi)) 0 0)
               ((sin phi) (cos phi) 0 0)
               (0 0 1 0)
-              (0 0 0 1)))))
+              (0 0 0 1)))
+
+    (define (shearing xy xz yx yz zx zy)
+      (matrix ( 1 xy xz 0)
+              (yx  1 yz 0)
+              (zx zy  1 0)
+              ( 0  0  0 1)))))
