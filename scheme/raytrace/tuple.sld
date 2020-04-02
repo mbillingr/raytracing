@@ -1,5 +1,7 @@
 (define-library (raytrace tuple)
-  (export tuple tuple? tuple-w tuple-x tuple-y tuple-z
+  (export tuple tuple?
+          tuple-w tuple-x tuple-y tuple-z
+          tuple-set-w! tuple-set-x! tuple-set-y! tuple-set-z!
           point point? vec vec?
           tuple-add tuple-sub tuple-neg tuple-scale tuple-div
           magnitude normalize dot cross
@@ -15,10 +17,10 @@
     (define-record-type <tuple>
       (tuple x y z w)
       tuple?
-      (x tuple-x)
-      (y tuple-y)
-      (z tuple-z)
-      (w tuple-w))
+      (x tuple-x tuple-set-x!)
+      (y tuple-y tuple-set-y!)
+      (z tuple-z tuple-set-z!)
+      (w tuple-w tuple-set-w!))
 
     (define-record-type <color>
       (color r g b)

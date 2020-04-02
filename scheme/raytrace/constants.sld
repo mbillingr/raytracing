@@ -1,7 +1,10 @@
 (define-library (raytrace constants)
-  (export PI SQRT2)
+  (export PI SQRT2 SQRT2/2 SQRT3 SQRT3/3)
   (import (scheme base)
           (scheme inexact))
   (begin
     (define PI 3.14159265358979323846264338327950288419716939937510582)
-    (define SQRT2 (sqrt 2))))
+    (define SQRT2 (sqrt 2))
+    (define SQRT3 (sqrt 3))
+    (define SQRT2/2 (/ SQRT2 2))
+    (define SQRT3/3 (/ SQRT3 3))))

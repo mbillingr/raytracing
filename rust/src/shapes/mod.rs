@@ -4,12 +4,16 @@ pub use sphere::Sphere;
 
 use crate::matrix::Matrix;
 use crate::ray::{Intersection, Ray};
+use crate::tuple::Tuple;
 use std::fmt::Debug;
 
 pub trait Shape: Debug {
     fn intersect(&self, ray: &Ray) -> Vec<Intersection>;
-    fn transform(&self) -> &Matrix;
+    fn normal_at(&self, world_point: Tuple) -> Tuple;
+
     fn set_transform(&mut self, t: Matrix);
+    fn transform(&self) -> &Matrix;
+    fn inv_transform(&self) -> &Matrix;
 }
 
 impl PartialEq for dyn Shape + '_ {
