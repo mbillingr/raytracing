@@ -5,7 +5,7 @@ use std::fs::File;
 use std::time::Duration;
 
 fn main() {
-    let (width, height) = (64, 48);
+    let (width, height) = (64, 64);
     let mut canvas = Canvas::new(width, height);
     canvas.life_view("Canvas view");
 
@@ -32,7 +32,7 @@ fn main() {
         std::thread::sleep(Duration::from_millis(10));
     }
 
-    let mut f = File::create("pictures/chapter-2.ppm").unwrap();
+    let mut f = File::create("pictures/chapter-02.ppm").unwrap();
     canvas.write_ppm(&mut f).unwrap();
 }
 
