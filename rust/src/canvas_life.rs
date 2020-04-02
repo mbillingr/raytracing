@@ -27,7 +27,7 @@ impl Canvas {
             let video_subsystem = sdl_context.video().unwrap();
 
             let window = video_subsystem
-                .window(window_name, 800, 600)
+                .window(window_name, 750, 750)
                 .position_centered()
                 .build()
                 .unwrap();

@@ -17,9 +17,14 @@
       (dispatch2
         'almost-equal?
         (lambda (a b)
-          (if (and (number? a) (number? b))
-              (almost= a b)
-              (equal? a b)))
+          (cond ((and (number? a) (number? b))
+                 (almost= a b))
+                ((and (procedure? a) (procedure? b))
+                 (eq? a b))
+                ((and (pair? a) (pair? b))
+                 (and (almost-equal? (car a) (car b))
+                      (almost-equal? (cdr a) (cdr b))))
+                (else (equal? a b))))
         a b))
 
     (define (dispatch1 method default obj . args)

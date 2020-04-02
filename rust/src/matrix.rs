@@ -754,9 +754,9 @@ mod tests {
 
     /// Individual transformations are applied in sequence
     #[test]
-    fn transform_sequence(){
-        let p = point( 1, 0, 1);
-        let a = rotation_x( PI / 2.0);
+    fn transform_sequence() {
+        let p = point(1, 0, 1);
+        let a = rotation_x(PI / 2.0);
         let b = scaling(5, 5, 5);
         let c = translation(10, 5, 7);
 
@@ -771,9 +771,9 @@ mod tests {
 
     /// Chained transformations must be applied in reverse order
     #[test]
-    fn transform_chain(){
-        let p = point( 1, 0, 1);
-        let a = rotation_x( PI / 2.0);
+    fn transform_chain() {
+        let p = point(1, 0, 1);
+        let a = rotation_x(PI / 2.0);
         let b = scaling(5, 5, 5);
         let c = translation(10, 5, 7);
 
@@ -781,10 +781,9 @@ mod tests {
         assert_eq!(t * p, point(15, 0, 7));
 
         let t = Matrix::identity()
-            .rotate(PI/2.0, [1.0, 0.0, 0.0])
+            .rotate(PI / 2.0, [1.0, 0.0, 0.0])
             .scale(5.0, 5.0, 5.0)
-            .translate(10.0, 5.0, 7.0)
-        ;
+            .translate(10.0, 5.0, 7.0);
         assert_eq!(t * p, point(15, 0, 7));
     }
 }

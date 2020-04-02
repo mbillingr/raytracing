@@ -1,10 +1,14 @@
 (define-library (raytrace transformations)
   (export rotation-x rotation-y rotation-z
-          scaling shearing translation)
+          scaling shearing translation
+          identity-transform)
   (import (scheme base)
           (scheme inexact)
           (raytrace matrix))
   (begin
+    (define (identity-transform)
+      m4-identity)
+
     (define (translation dx dy dz)
       (matrix (1 0 0 dx)
               (0 1 0 dy)

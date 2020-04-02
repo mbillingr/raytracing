@@ -39,3 +39,53 @@ impl ApproximateEq for Matrix {
             .all(|(a, b)| a.approx_eq(b))
     }
 }
+
+/// Asserts that two expressions are equal to each other (using [`ApproximateEq`]).
+///
+/// On panic, this macro will print the values of the expressions with their
+/// debug representations.
+///
+/// Like [`assert!`], this macro has a second form, where a custom
+/// panic message can be provided.
+///
+/// [`PartialEq`]: cmp/trait.PartialEq.html
+/// [`assert!`]: macro.assert.html
+///
+/// # Examples
+///
+/// ```
+/// let a = 3;
+/// let b = 1 + 2;
+/// assert_eq!(a, b);
+///
+/// assert_eq!(a, b, "we are testing addition with {} and {}", a, b);
+/// ```
+#[macro_export]
+macro_rules! assert_almost_eq {
+    ($left:expr, $right:expr) => ({
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                if !(left_val.approx_eq(right_val)) {
+                    panic!(r#"assertion failed: `(left == right)`
+  left: `{:?}`,
+ right: `{:?}`"#, &*left_val, &*right_val)
+                }
+            }
+        }
+    });
+    ($left:expr, $right:expr,) => ({
+        $crate::assert_almost_eq!($left, $right)
+    });
+    ($left:expr, $right:expr, $($arg:tt)+) => ({
+        match (&($left), &($right)) {
+            (left_val, right_val) => {
+                if !(left_val.approx_eq(right_val)) {
+                    panic!(r#"assertion failed: `(left == right)`
+  left: `{:?}`,
+ right: `{:?}`: {}"#, &*left_val, &*right_val,
+                           $crate::format_args!($($arg)+))
+                }
+            }
+        }
+    });
+}
