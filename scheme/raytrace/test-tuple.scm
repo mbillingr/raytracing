@@ -1,7 +1,8 @@
 (import (scheme base)
         (scheme inexact)
         (raytrace testing)
-        (raytrace tuple))
+        (raytrace tuple)
+        (raytrace constants))
 
 (test "A tuple with w=1.0 is a point"
   (given (a <- (tuple 4.3 -4.2 3.1 1.0)))
@@ -133,3 +134,15 @@
   (given (c1 <- (color 1 0.2 0.4))
          (c2 <- (color 0.9 1 0.1)))
   (then ((color* c1 c2) == (color 0.9 0.2 0.04))))
+
+(test "Reflecting a vector approaching at 45deg"
+  (given (v <- (vec 1 -1 0))
+         (n <- (vec 0 1 0)))
+  (when (r <- (reflect v n)))
+  (then (r == (vec 1 1 0))))
+
+(test "Reflecting a vector off a slanted surface"
+  (given (v <- (vec 0 -1 0))
+         (n <- (vec SQRT2/2 SQRT2/2 0)))
+  (when (r <- (reflect v n)))
+  (then (r == (vec 1 0 0))))

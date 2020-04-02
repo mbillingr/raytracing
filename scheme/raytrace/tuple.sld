@@ -7,7 +7,8 @@
           magnitude normalize dot cross
           color color?
           color-red color-green color-blue
-          color+ color- color* color-scale color-clip color-round)
+          color+ color- color* color-scale color-clip color-round
+          reflect)
   (import (scheme base)
           (scheme write)
           (scheme inexact)
@@ -158,4 +159,11 @@
             ((eq? 'almost-equal? method) (apply color-almost-equal? args))))
 
     (register-type tuple? tuple-dispatch)
-    (register-type color? color-dispatch)))
+    (register-type color? color-dispatch)
+
+    (define (reflect v normal)
+      (tuple-sub
+        v
+        (tuple-scale
+          normal
+          (* 2 (dot v normal)))))))

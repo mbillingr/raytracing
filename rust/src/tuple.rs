@@ -98,6 +98,10 @@ impl Tuple {
         let v3 = vec3_cross([self.x(), self.y(), self.z()], [rhs.x(), rhs.y(), rhs.z()]);
         vector(v3[0], v3[1], v3[2])
     }
+
+    pub fn reflect(&self, normal: &Self) -> Self {
+        *self - *normal * (2.0 * self.dot(normal))
+    }
 }
 
 const EPSILON: f64 = 1e-6;
@@ -349,5 +353,27 @@ mod tests {
         let b = vector(2, 3, 4);
         assert_eq!(a.cross(&b), vector(-1, 2, -1));
         assert_eq!(b.cross(&a), vector(1, -2, 1));
+    }
+
+    /// Reflecting a vector approaching at 45deg
+    #[test]
+    fn reflect_up() {
+        let v = vector(1, -1, 0);
+        let n = vector(0, 1, 0);
+        let r = v.reflect(&n);
+        assert_almost_eq!(r, vector(1, 1, 0));
+    }
+
+    /// Reflecting a vector off a slanted surface
+    #[test]
+    fn reflect_45() {
+        let v = vector(0, -1, 0);
+        let n = vector(
+            std::f64::consts::FRAC_1_SQRT_2,
+            std::f64::consts::FRAC_1_SQRT_2,
+            0,
+        );
+        let r = v.reflect(&n);
+        assert_almost_eq!(r, vector(1, 0, 0));
     }
 }
