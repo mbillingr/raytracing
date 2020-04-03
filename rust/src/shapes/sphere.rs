@@ -1,3 +1,4 @@
+use crate::materials::Phong;
 use crate::matrix::Matrix;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::Shape;
@@ -7,6 +8,7 @@ use crate::tuple::{point, vector, Tuple};
 pub struct Sphere {
     transform: Matrix,
     inv_transform: Matrix,
+    material: Phong,
 }
 
 impl Sphere {
@@ -14,6 +16,7 @@ impl Sphere {
         Sphere {
             transform: Matrix::identity(),
             inv_transform: Matrix::identity(),
+            material: Phong::default(),
         }
     }
 }
@@ -57,12 +60,21 @@ impl Shape for Sphere {
     fn inv_transform(&self) -> &Matrix {
         &self.inv_transform
     }
+
+    fn set_material(&mut self, m: Phong) {
+        self.material = m;
+    }
+
+    fn material(&self) -> &Phong {
+        &self.material
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
+    use crate::color::color;
     use crate::matrix::{rotation_x, rotation_y, rotation_z, scaling, translation};
     use crate::tuple::{point, vector};
     use std::f64::consts::PI;
@@ -246,5 +258,22 @@ mod tests {
         s.set_transform(scaling(1, 0.5, 1) * rotation_z(PI / 5.0));
         let n = s.normal_at(point(0, s2, -s2));
         assert_almost_eq!(n, vector(0, 0.97014, -0.24254));
+    }
+
+    /// A sphere has a default material
+    #[test]
+    fn default_material() {
+        let s = Sphere::new();
+        let m = s.material();
+        assert_almost_eq!(m, &Phong::default())
+    }
+
+    /// A sphere may be assigned a material
+    #[test]
+    fn assign_material() {
+        let mut s = Sphere::new();
+        let m = Phong::new(color(1, 0, 0), 0.0, 1.0, 0.0, 1.0);
+        s.set_material(m.clone());
+        assert_almost_eq!(s.material(), m)
     }
 }

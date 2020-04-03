@@ -5,12 +5,14 @@
           (raytrace tuple)
           (raytrace ray)
           (raytrace matrix)
-          (raytrace transformations))
+          (raytrace transformations)
+          (raytrace material))
   (begin
 
     (define (sphere)
       (define transform (identity-transform))
       (define inv-transform (identity-transform))
+      (define material (default-material))
 
       (define (intersect r)
         (let* ((ray2 (ray-transform r inv-transform))
@@ -49,9 +51,11 @@
         (cond ((eq? m 'intersect) (intersect (car args)))
               ((eq? m 'normal-at) (normal-at (car args)))
               ((eq? m 'transform) transform)
+              ((eq? m 'material) material)
               ((eq? m 'set-transform!)
                (set! transform (car args))
                (set! inv-transform (m4-inverse (car args))))
+              ((eq? m 'set-material!) (set! material (car args)))
               (else (error "unknown method (sphere m ...)" m))))
 
       dispatch)))

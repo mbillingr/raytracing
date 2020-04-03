@@ -1,4 +1,5 @@
 use crate::color::Color;
+use crate::materials::Phong;
 use crate::matrix::Matrix;
 use crate::tuple::Tuple;
 
@@ -37,6 +38,15 @@ impl ApproximateEq for Matrix {
             .iter()
             .zip(other.into_flat().iter())
             .all(|(a, b)| a.approx_eq(b))
+    }
+}
+
+impl ApproximateEq for Phong {
+    fn approx_eq(&self, other: &Self) -> bool {
+        self.color().approx_eq(&other.color())
+            && self.ambient().approx_eq(&other.ambient())
+            && self.diffuse().approx_eq(&other.diffuse())
+            && self.specular().approx_eq(&other.specular())
     }
 }
 

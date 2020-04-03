@@ -5,7 +5,8 @@
         (raytrace tuple)
         (raytrace matrix)
         (raytrace transformations)
-        (raytrace constants))
+        (raytrace constants)
+        (raytrace material))
 
 (test "A ray intersects a sphere at two points"
   (given (r <- (ray (point 0 0 -5) (vec 0 0 1)))
@@ -97,3 +98,22 @@
   (when (s 'set-transform! (m4* (scaling 1 0.5 1) (rotation-z (/ PI 5))))
         (n <- (s 'normal-at (point 0 SQRT2/2 (- SQRT2/2)))))
   (then (n == (vec 0 0.97014 -0.24254))))
+
+(test "The default material"
+  (given (m <- (default-material)))
+  (then ((material-color m) == (color 1 1 1))
+        ((material-ambient m) == 0.1)
+        ((material-diffuse m) == 0.9)
+        ((material-specular m) == 0.9)
+        ((material-shininess m) == 200)))
+
+(test "A sphere has a default material"
+  (given (s <- (sphere)))
+  (when (m <- (s 'material)))
+  (then (m == (default-material))))
+
+(test "A sphere may be assigned a material"
+  (given (s <- (sphere))
+         (m <- (material (color 1 0 0) 1 1 0 200)))
+  (when (s 'set-material! m))
+  (then ((s 'material) == m)))

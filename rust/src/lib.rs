@@ -6,6 +6,8 @@ pub mod ray;
 pub mod canvas;
 mod canvas_life;
 pub mod color;
+pub mod lights;
+pub mod materials;
 pub mod matrix;
 pub mod shapes;
 pub mod tuple;

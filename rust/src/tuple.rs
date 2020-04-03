@@ -16,6 +16,9 @@ pub fn vector(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>) -> Tuple 
     Tuple::vector(x.into(), y.into(), z.into())
 }
 
+pub type Point = Tuple;
+pub type Vector = Tuple;
+
 #[derive(Debug, Copy, Clone)]
 pub struct Tuple(pub(crate) Vector4<f64>);
 

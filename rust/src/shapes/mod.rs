@@ -2,6 +2,7 @@ mod sphere;
 
 pub use sphere::Sphere;
 
+use crate::materials::Phong;
 use crate::matrix::Matrix;
 use crate::ray::{Intersection, Ray};
 use crate::tuple::Tuple;
@@ -14,6 +15,9 @@ pub trait Shape: Debug {
     fn set_transform(&mut self, t: Matrix);
     fn transform(&self) -> &Matrix;
     fn inv_transform(&self) -> &Matrix;
+
+    fn set_material(&mut self, m: Phong);
+    fn material(&self) -> &Phong;
 }
 
 impl PartialEq for dyn Shape + '_ {

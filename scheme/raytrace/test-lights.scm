@@ -1,0 +1,15 @@
+(import (scheme base) (scheme write)
+        (raytrace testing)
+        (raytrace ray)
+        (raytrace lights)
+        (raytrace tuple)
+        (raytrace matrix)
+        (raytrace transformations)
+        (raytrace constants))
+
+(test "A point light has a position and intensity"
+  (given (intensity <- (color 1 1 1))
+         (position <- (point 0 0 0)))
+  (when (light <- (point-light position intensity)))
+  (then ((light 'position) == position)
+        ((light 'intensity) == intensity)))
