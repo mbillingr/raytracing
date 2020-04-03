@@ -12,7 +12,9 @@ pub struct Color {
 }
 
 impl Color {
-    pub fn new(red: f64, green: f64, blue: f64) -> Self {
+    pub const BLACK: Color = Color::new(0.0, 0.0, 0.0);
+
+    pub const fn new(red: f64, green: f64, blue: f64) -> Self {
         Color { red, green, blue }
     }
 
