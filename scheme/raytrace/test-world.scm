@@ -107,3 +107,23 @@
         (material-set-ambient! (inner 'material) 1)
         (c <- (w 'color-at r)))
   (then (c == (material-color (inner 'material)))))
+
+(test "There is no shadow if nothing is collinear with point and light"
+  (given (w <- (default-world))
+         (p <- (point 0 10 0)))
+  (then ((w 'is-shadowed (car (w 'lights)) p) == #f)))
+
+(test "There is shadow when an object is between point and light"
+  (given (w <- (default-world))
+         (p <- (point 10 -10 10)))
+  (then ((w 'is-shadowed (car (w 'lights)) p) == #t)))
+
+(test "There is no shadow if the object is behind the light"
+  (given (w <- (default-world))
+         (p <- (point -20 20 -20)))
+  (then ((w 'is-shadowed (car (w 'lights)) p) == #f)))
+
+(test "There is no shadow if the object is behind the point"
+  (given (w <- (default-world))
+         (p <- (point -2 2 -2)))
+  (then ((w 'is-shadowed (car (w 'lights)) p) == #f)))

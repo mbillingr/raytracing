@@ -55,9 +55,16 @@
                 (shade-hit comps))
               (color 0 0 0))))
 
+      (define (is-shadowed light p)
+        (define direction (tuple-sub (light 'position) p))
+        (define h (hit (intersect (ray p (normalize direction)))))
+        (and h (< (intersection-t h)
+                  (magnitude direction))))
+
       (define (dispatch m . args)
         (cond ((eq? m 'color-at) (color-at (car args)))
               ((eq? m 'intersect) (intersect (car args)))
+              ((eq? m 'is-shadowed) (is-shadowed (car args) (cadr args)))
               ((eq? m 'shade-hit) (shade-hit (car args)))
               ((eq? m 'lights) lights)
               ((eq? m 'objects) objects)

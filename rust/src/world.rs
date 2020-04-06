@@ -4,7 +4,7 @@ use crate::materials::Phong;
 use crate::matrix::scaling;
 use crate::ray::{hit, Intersection, IntersectionState, Ray};
 use crate::shapes::{Shape, Sphere};
-use crate::tuple::point;
+use crate::tuple::{point, Point};
 
 pub struct World {
     lights: Vec<PointLight>,
@@ -72,6 +72,13 @@ impl World {
                 .expect("Unable to compare intersection distances")
         });
         xs
+    }
+
+    pub fn is_shadowed(&self, light: &PointLight, p: Point) -> bool {
+        let direction = light.position() - p;
+        hit(&self.intersect(&Ray::new(p, direction.normalized())))
+            .map(|i| i.t < direction.len())
+            .unwrap_or(false)
     }
 }
 
@@ -183,5 +190,37 @@ mod tests {
         w.objects[1].set_material(m1.clone());
         let c = w.color_at(&r);
         assert_eq!(c, Some(m1.color()));
+    }
+
+    /// There is no shadow if nothing is collinear with point and light
+    #[test]
+    fn shadow1() {
+        let w = World::default();
+        let p = point(0, 10, 0);
+        assert!(!w.is_shadowed(&w.lights[0], p))
+    }
+
+    /// There is shadow when an object is between point and light
+    #[test]
+    fn shadow2() {
+        let w = World::default();
+        let p = point(10, -10, 10);
+        assert!(w.is_shadowed(&w.lights[0], p))
+    }
+
+    /// There is no shadow if the object is behind the light
+    #[test]
+    fn shadow3() {
+        let w = World::default();
+        let p = point(-20, 20, -20);
+        assert!(!w.is_shadowed(&w.lights[0], p))
+    }
+
+    /// There is no shadow if the object is behind the point
+    #[test]
+    fn shadow4() {
+        let w = World::default();
+        let p = point(-2, 2, -2);
+        assert!(!w.is_shadowed(&w.lights[0], p))
     }
 }
