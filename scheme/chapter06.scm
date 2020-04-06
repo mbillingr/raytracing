@@ -22,7 +22,7 @@
                      (point (ray-position ray t))
                      (eyev (tuple-neg (ray-direction ray)))
                      (normalv ((intersection-object h) 'normal-at point)))
-                (lighting mat light point eyev normalv)))))))
+                (lighting mat light point eyev normalv #f)))))))
 
 (define light (point-light (point 1 9 -10) (color 1 1 1)))
 (define scene (list (sphere)))

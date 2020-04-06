@@ -22,7 +22,7 @@
       (material (color 1 1 1)
                 0.1 0.9 0.9 200))
 
-    (define (lighting material light point eyev normalv)
+    (define (lighting material light point eyev normalv in-shadow?)
       (let* ((effective-color (color* (material-color material)
                                       (light 'intensity)))
              (lightv (normalize (tuple-sub (light 'position)
@@ -32,7 +32,8 @@
              (light-dot-normal (dot lightv normalv))
              (diffuse (color 0 0 0))
              (specular (color 0 0 0)))
-        (if (< 0 light-dot-normal)
+        (if (and (< 0 light-dot-normal)
+                 (not in-shadow?))
             (begin
               (set! diffuse
                 (color-scale effective-color

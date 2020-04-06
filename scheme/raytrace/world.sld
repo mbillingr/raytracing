@@ -44,7 +44,8 @@
                                 (car l)
                                 (comp-point comps)
                                 (comp-eyev comps)
-                                (comp-normalv comps))
+                                (comp-normalv comps)
+                                #f)
                       (loop (cdr l))))))
 
       (define (color-at ray)

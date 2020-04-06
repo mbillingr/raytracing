@@ -74,12 +74,18 @@ impl Phong {
         point: Point,
         eyev: Vector,
         normalv: Vector,
+        in_shadow: bool,
     ) -> Color {
         let effective_color = self.color() * light.intensity();
+        let ambient = effective_color * self.ambient();
+
+        if in_shadow {
+            return ambient;
+        }
+
         let lightv = (light.position() - point).normalized();
         let light_dot_normal = lightv.dot(&normalv);
 
-        let ambient = effective_color * self.ambient();
         let diffuse;
         let specular;
 
@@ -130,7 +136,7 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, -10), color(1, 1, 1));
-        let result = m.lighting(&light, pos, eyev, normalv);
+        let result = m.lighting(&light, pos, eyev, normalv, false);
         assert_almost_eq!(result, color(1.9, 1.9, 1.9));
     }
 
@@ -146,7 +152,7 @@ mod tests {
         );
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, -10), color(1, 1, 1));
-        let result = m.lighting(&light, pos, eyev, normalv);
+        let result = m.lighting(&light, pos, eyev, normalv, false);
         assert_almost_eq!(result, color(1.0, 1.0, 1.0));
     }
 
@@ -158,7 +164,7 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 10, -10), color(1, 1, 1));
-        let result = m.lighting(&light, pos, eyev, normalv);
+        let result = m.lighting(&light, pos, eyev, normalv, false);
         assert_almost_eq!(result, color(0.7364, 0.7364, 0.7364));
     }
 
@@ -174,7 +180,7 @@ mod tests {
         );
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 10, -10), color(1, 1, 1));
-        let result = m.lighting(&light, pos, eyev, normalv);
+        let result = m.lighting(&light, pos, eyev, normalv, false);
         assert_almost_eq!(result, color(1.6364, 1.6364, 1.6364));
     }
 
@@ -186,7 +192,19 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, 10), color(1, 1, 1));
-        let result = m.lighting(&light, pos, eyev, normalv);
+        let result = m.lighting(&light, pos, eyev, normalv, false);
+        assert_almost_eq!(result, color(0.1, 0.1, 0.1));
+    }
+
+    /// Lighting with the surface in shadow
+    #[test]
+    fn shadow() {
+        let m = Phong::default();
+        let pos = point(0, 0, 0);
+        let eyev = vector(0, 0, -1);
+        let normalv = vector(0, 0, -1);
+        let light = PointLight::new(point(0, 0, -10), color(1, 1, 1));
+        let result = m.lighting(&light, pos, eyev, normalv, true);
         assert_almost_eq!(result, color(0.1, 0.1, 0.1));
     }
 }

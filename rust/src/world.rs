@@ -52,10 +52,13 @@ impl World {
     pub fn shade_hit(&self, comps: IntersectionState) -> Color {
         self.lights.iter().fold(Color::BLACK, |color, light| {
             color
-                + comps
-                    .obj
-                    .material()
-                    .lighting(&light, comps.point, comps.eyev, comps.normalv)
+                + comps.obj.material().lighting(
+                    &light,
+                    comps.point,
+                    comps.eyev,
+                    comps.normalv,
+                    false,
+                )
         })
     }
 

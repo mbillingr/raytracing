@@ -37,7 +37,7 @@ fn main() {
                 let p = ray.position(t);
                 let eyev = -ray.direction();
                 let normalv = obj.normal_at(p);
-                let color = obj.material().lighting(&light, p, eyev, normalv);
+                let color = obj.material().lighting(&light, p, eyev, normalv, false);
                 canvas.set_pixel(i, j, color);
             }
         }
