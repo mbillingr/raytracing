@@ -1,10 +1,12 @@
 (define-library (raytrace transformations)
   (export rotation-x rotation-y rotation-z
           scaling shearing translation
-          identity-transform)
+          identity-transform
+          view-transform)
   (import (scheme base)
           (scheme inexact)
-          (raytrace matrix))
+          (raytrace matrix)
+          (raytrace tuple))
   (begin
     (define (identity-transform)
       m4-identity)
@@ -43,4 +45,16 @@
       (matrix ( 1 xy xz 0)
               (yx  1 yz 0)
               (zx zy  1 0)
-              ( 0  0  0 1)))))
+              ( 0  0  0 1)))
+
+    (define (view-transform from to up)
+      (let* ((forward (normalize (tuple-sub to from)))
+             (left (cross forward (normalize up)))
+             (true-up (cross left forward)))
+        (m4* (matrix (   (tuple-x left)        (tuple-y left)        (tuple-z left)     0)
+                     (   (tuple-x true-up)     (tuple-y true-up)     (tuple-z true-up)  0)
+                     ((- (tuple-x forward)) (- (tuple-y forward)) (- (tuple-z forward)) 0)
+                     (   0                     0                     0                  1))
+             (translation (- (tuple-x from))
+                          (- (tuple-y from))
+                          (- (tuple-z from))))))))

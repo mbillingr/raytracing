@@ -1,4 +1,4 @@
-use crate::tuple::{tuple, vector, Tuple};
+use crate::tuple::{tuple, vector, Point, Tuple, Vector};
 use quaternion::Quaternion;
 use std::ops::{Index, Mul};
 use vecmath::{
@@ -39,6 +39,10 @@ pub fn rotation_y(phi: impl Into<f64>) -> Matrix {
 
 pub fn rotation_z(phi: impl Into<f64>) -> Matrix {
     Matrix::Identity.rotate(phi.into(), [0.0, 0.0, 1.0])
+}
+
+pub fn view_transform(from: Point, to: Point, up: Vector) -> Matrix {
+    Matrix::view(from, to, up)
 }
 
 pub fn shearing(
@@ -82,6 +86,19 @@ impl Matrix {
 
     pub fn rotate(self, phi: f64, axis: Vector3<f64>) -> Self {
         Matrix::Rotate(quaternion::axis_angle(axis, phi)) * self
+    }
+
+    pub fn view(from: Point, to: Point, up: Vector) -> Self {
+        let forward = (to - from).normalized();
+        let left = forward.cross(&up.normalized());
+        let true_up = left.cross(&forward);
+        let orientation = Matrix::Full([
+            [left.x(), left.y(), left.z(), 0.0],
+            [true_up.x(), true_up.y(), true_up.z(), 0.0],
+            [-forward.x(), -forward.y(), -forward.z(), 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]);
+        orientation * Matrix::Translate([-from.x(), -from.y(), -from.z()])
     }
 
     pub fn transpose(self) -> Self {
@@ -220,16 +237,16 @@ impl Mul for Matrix {
             (Full(a), Transposed(b)) => Full(row_mat4_mul(a, mat4_transposed(b))),
             (Translate(a), Translate(b)) => Translate(vec3_add(a, b)),
             (Full(a), Translate([x, y, z])) => matrix![
-                a[0][0], a[0][1], a[0][2], a[0][3] * x;
-                a[1][0], a[1][1], a[1][2], a[1][3] * y;
-                a[2][0], a[2][1], a[2][2], a[2][3] * z;
-                a[3][0], a[3][1], a[3][2], a[3][3];
+                a[0][0], a[0][1], a[0][2], a[0][0] * x + a[0][1] * y + a[0][2] * z + a[0][3];
+                a[1][0], a[1][1], a[1][2], a[1][0] * x + a[1][1] * y + a[1][2] * z + a[1][3];
+                a[2][0], a[2][1], a[2][2], a[2][0] * x + a[2][1] * y + a[2][2] * z + a[2][3];
+                a[3][0], a[3][1], a[3][2], a[3][0] * x + a[3][1] * y + a[3][2] * z + a[3][3];
             ],
             (Transposed(a), Translate([x, y, z])) => matrix![
-                a[0][0], a[1][0], a[2][0], a[3][0] * x;
-                a[0][1], a[1][1], a[2][1], a[3][1] * y;
-                a[0][2], a[1][2], a[2][2], a[3][2] * z;
-                a[0][3], a[1][3], a[2][3], a[3][3];
+                a[0][0], a[1][0], a[2][0], a[0][0] * x + a[1][0] * y + a[2][0] * z + a[3][0];
+                a[0][1], a[1][1], a[2][1], a[0][1] * x + a[1][1] * y + a[2][1] * z + a[3][1];
+                a[0][2], a[1][2], a[2][2], a[0][2] * x + a[1][2] * y + a[2][2] * z + a[3][2];
+                a[0][3], a[1][3], a[2][3], a[0][3] * x + a[1][3] * y + a[2][3] * z + a[3][3];
             ],
             (Scale(a), Scale(b)) => Scale(vec3_mul(a, b)),
             (Full(a), Scale([x, y, z])) => matrix![
@@ -785,5 +802,53 @@ mod tests {
             .scale(5.0, 5.0, 5.0)
             .translate(10.0, 5.0, 7.0);
         assert_eq!(t * p, point(15, 0, 7));
+    }
+
+    /// The transformation matrix for the default orientation
+    #[test]
+    fn view_default() {
+        let from = point(0, 0, 0);
+        let to = point(0, 0, -1);
+        let up = vector(0, 1, 0);
+        let t = view_transform(from, to, up);
+        assert_almost_eq!(t, Matrix::Identity);
+    }
+
+    /// A view transformation matrix looking in positive z direction
+    #[test]
+    fn view_reverse() {
+        let from = point(0, 0, 0);
+        let to = point(0, 0, 1);
+        let up = vector(0, 1, 0);
+        let t = view_transform(from, to, up);
+        assert_almost_eq!(t, scaling(-1, 1, -1));
+    }
+
+    /// The view transforma moves the world
+    #[test]
+    fn view_shifted() {
+        let from = point(0, 0, 8);
+        let to = point(0, 0, 0);
+        let up = vector(0, 1, 0);
+        let t = view_transform(from, to, up);
+        assert_almost_eq!(t, translation(0, 0, -8));
+    }
+
+    /// An arbitrary view transform
+    #[test]
+    fn view_arbitrary() {
+        let from = point(1, 3, 2);
+        let to = point(4, -2, 8);
+        let up = vector(1, 1, 0);
+        let t = view_transform(from, to, up);
+        assert_almost_eq!(
+            t,
+            matrix![
+                -0.50709, 0.50709,  0.67612, -2.36643;
+                 0.76772, 0.60609,  0.12122, -2.82843;
+                -0.35857, 0.59761, -0.71714,  0.00000;
+                 0.00000, 0.00000,  0.00000,  1.00000;
+            ]
+        );
     }
 }
