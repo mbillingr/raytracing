@@ -23,8 +23,8 @@ fn main() {
 
     let dt = 0.1;
     while projectile.pos.y() > 0.0 {
-        let x = projectile.pos.x().round() as usize;
-        let y = projectile.pos.y().round() as usize;
+        let x = projectile.pos.x().round() as u32;
+        let y = projectile.pos.y().round() as u32;
         if x < width && y < height {
             canvas.set_pixel(x, height - 1 - y, c);
         }

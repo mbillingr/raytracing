@@ -3,6 +3,7 @@ pub mod approx_eq;
 #[macro_use]
 pub mod ray;
 
+pub mod camera;
 pub mod canvas;
 mod canvas_life;
 pub mod color;

@@ -4,13 +4,13 @@ use std::io::Write;
 use std::sync::mpsc::Sender;
 use std::thread::JoinHandle;
 
-pub fn canvas(w: usize, h: usize) -> Canvas {
+pub fn canvas(w: u32, h: u32) -> Canvas {
     Canvas::new(w, h)
 }
 
 pub struct Canvas {
-    width: usize,
-    height: usize,
+    width: u32,
+    height: u32,
     data: Vec<Color>,
     pub(crate) threads: Vec<JoinHandle<()>>,
     pub(crate) listeners: Vec<Sender<Message>>,
@@ -25,49 +25,49 @@ impl Drop for Canvas {
 }
 
 impl Canvas {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         Canvas {
             width,
             height,
-            data: vec![color(0, 0, 0); width * height],
+            data: vec![color(0, 0, 0); (width * height) as usize],
             threads: vec![],
             listeners: vec![],
         }
     }
 
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> u32 {
         self.width
     }
 
-    pub fn height(&self) -> usize {
+    pub fn height(&self) -> u32 {
         self.height
     }
 
     pub fn clear(&mut self, c: Color) {
         self.data.clear();
-        self.data.resize(self.width * self.height, c);
+        self.data.resize((self.width * self.height) as usize, c);
 
         let (r, g, b) = c.to_u8();
         self.send_message(Message::Clear(r, g, b))
     }
 
-    pub fn set_pixel(&mut self, x: usize, y: usize, c: Color) {
-        self.rows_mut().skip(y).next().unwrap()[x] = c;
+    pub fn set_pixel(&mut self, x: u32, y: u32, c: Color) {
+        self.rows_mut().skip(y as usize).next().unwrap()[x as usize] = c;
 
         let (r, g, b) = c.to_u8();
         self.send_message(Message::SetPixel(x as i32, y as i32, r, g, b))
     }
 
-    pub fn get_pixel(&self, x: usize, y: usize) -> Color {
-        self.rows().skip(y).next().unwrap()[x]
+    pub fn get_pixel(&self, x: u32, y: u32) -> Color {
+        self.rows().skip(y as usize).next().unwrap()[x as usize]
     }
 
     pub fn rows(&self) -> impl Iterator<Item = &[Color]> + '_ {
-        self.data.chunks_exact(self.width)
+        self.data.chunks_exact(self.width as usize)
     }
 
     pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [Color]> + '_ {
-        self.data.chunks_exact_mut(self.width)
+        self.data.chunks_exact_mut(self.width as usize)
     }
 
     pub fn flat(&self) -> impl Iterator<Item = Color> + '_ {
