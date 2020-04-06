@@ -5,7 +5,7 @@ pub use sphere::Sphere;
 use crate::materials::Phong;
 use crate::matrix::Matrix;
 use crate::ray::{Intersection, Ray};
-use crate::tuple::Tuple;
+use crate::tuple::{Point, Vector};
 use std::any::Any;
 use std::fmt::Debug;
 
@@ -14,7 +14,7 @@ pub trait Shape: Debug + Any {
     fn is_similar(&self, other: &dyn Shape) -> bool;
 
     fn intersect(&self, ray: &Ray) -> Vec<Intersection>;
-    fn normal_at(&self, world_point: Tuple) -> Tuple;
+    fn normal_at(&self, world_point: Point) -> Vector;
 
     fn set_transform(&mut self, t: Matrix);
     fn transform(&self) -> &Matrix;

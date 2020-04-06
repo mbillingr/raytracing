@@ -3,7 +3,7 @@ use crate::materials::Phong;
 use crate::matrix::Matrix;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::Shape;
-use crate::tuple::{point, vector, Tuple};
+use crate::tuple::{point, vector, Point, Vector};
 use std::any::Any;
 
 #[derive(Debug)]
@@ -73,7 +73,7 @@ impl Shape for Sphere {
         }
     }
 
-    fn normal_at(&self, world_point: Tuple) -> Tuple {
+    fn normal_at(&self, world_point: Point) -> Vector {
         let obj_point = *self.inv_transform() * world_point;
         let obj_normal = obj_point - point(0, 0, 0);
         let world_normal = self.inv_transform().transpose() * obj_normal;

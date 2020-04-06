@@ -3,7 +3,7 @@ use crate::lights::PointLight;
 use crate::materials::Phong;
 use crate::matrix::Matrix;
 use crate::shapes::Shape;
-use crate::tuple::Tuple;
+use crate::tuple::{Point, Vector};
 use std::ops::Deref;
 
 pub trait ApproximateEq<T: ?Sized = Self> {
@@ -18,7 +18,16 @@ impl ApproximateEq for f64 {
     }
 }
 
-impl ApproximateEq for Tuple {
+impl ApproximateEq for Point {
+    fn approx_eq(&self, other: &Self) -> bool {
+        self.x().approx_eq(&other.x())
+            && self.y().approx_eq(&other.y())
+            && self.z().approx_eq(&other.z())
+            && self.w().approx_eq(&other.w())
+    }
+}
+
+impl ApproximateEq for Vector {
     fn approx_eq(&self, other: &Self) -> bool {
         self.x().approx_eq(&other.x())
             && self.y().approx_eq(&other.y())

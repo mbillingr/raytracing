@@ -1,6 +1,6 @@
 use raytracing::canvas::Canvas;
 use raytracing::color::color;
-use raytracing::tuple::{point, vector, Tuple};
+use raytracing::tuple::{point, vector, Point, Vector};
 use std::fs::File;
 use std::time::Duration;
 
@@ -42,11 +42,11 @@ fn tick(env: &Env, p: &mut Projectile, dt: f64) {
 }
 
 struct Projectile {
-    pos: Tuple,
-    vel: Tuple,
+    pos: Point,
+    vel: Vector,
 }
 
 struct Env {
-    gravity: Tuple,
-    wind: Tuple,
+    gravity: Vector,
+    wind: Vector,
 }

@@ -1,4 +1,4 @@
-use crate::tuple::{tuple, vector, Point, Tuple, Vector};
+use crate::tuple::{point, vector, Point, Vector};
 use quaternion::Quaternion;
 use std::ops::{Index, Mul};
 use vecmath::{
@@ -284,21 +284,37 @@ impl Mul for Matrix {
     }
 }
 
-impl Mul<Tuple> for Matrix {
-    type Output = Tuple;
-    fn mul(self, rhs: Tuple) -> Self::Output {
+impl Mul<Point> for Matrix {
+    type Output = Point;
+    fn mul(self, rhs: Point) -> Self::Output {
         use Matrix::*;
         match self {
             Identity => rhs,
-            Full(mat) => Tuple(row_mat4_transform(mat, rhs.0)),
-            Transposed(mat) => Tuple(col_mat4_transform(mat, rhs.0)),
-            /*Translate([dx, dy, dz]) if rhs.is_point() => rhs + vector(dx, dy, dz),
-            Translate(_) => rhs,*/
-            Translate([dx, dy, dz]) => rhs + vector(dx, dy, dz) * rhs.w(), // .is_point is not reliable because of rounding
-            Scale([sx, sy, sz]) => tuple(rhs.x() * sx, rhs.y() * sy, rhs.z() * sz, rhs.w()),
+            Full(mat) => Point::from(row_mat4_transform(mat, rhs.0)),
+            Transposed(mat) => Point::from(col_mat4_transform(mat, rhs.0)),
+            Translate([dx, dy, dz]) => rhs + vector(dx, dy, dz),
+            Scale([sx, sy, sz]) => point(rhs.x() * sx, rhs.y() * sy, rhs.z() * sz),
             Rotate(q) => {
                 let [x, y, z] = quaternion::rotate_vector(q, [rhs.x(), rhs.y(), rhs.z()]);
-                tuple(x, y, z, rhs.w())
+                point(x, y, z)
+            }
+        }
+    }
+}
+
+impl Mul<Vector> for Matrix {
+    type Output = Vector;
+    fn mul(self, rhs: Vector) -> Self::Output {
+        use Matrix::*;
+        match self {
+            Identity => rhs,
+            Full(mat) => Vector::from(row_mat4_transform(mat, rhs.0)),
+            Transposed(mat) => Vector::from(col_mat4_transform(mat, rhs.0)),
+            Translate(_) => rhs,
+            Scale([sx, sy, sz]) => vector(rhs.x() * sx, rhs.y() * sy, rhs.z() * sz),
+            Rotate(q) => {
+                let [x, y, z] = quaternion::rotate_vector(q, [rhs.x(), rhs.y(), rhs.z()]);
+                vector(x, y, z)
             }
         }
     }
@@ -308,7 +324,7 @@ impl Mul<Tuple> for Matrix {
 mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
-    use crate::tuple::{point, tuple};
+    use crate::tuple::point;
     use std::f64::consts::PI;
 
     /// Only for testing, implement an inaccurate PartialEq
@@ -476,17 +492,30 @@ mod tests {
         );
     }
 
-    /// A matrix multiplied by a tuple
+    /// A matrix multiplied by a point
     #[test]
-    fn matrix_transform() {
+    fn matrix_transform_p() {
         let a = matrix![
             1, 2, 3, 4;
             2, 4, 4, 2;
             8, 6, 4, 1;
             0, 0, 0, 1;
         ];
-        let b = tuple(1, 2, 3, 1);
-        assert_eq!(a * b, tuple(18, 24, 33, 1),);
+        let b = point(1, 2, 3);
+        assert_eq!(a * b, point(18, 24, 33),);
+    }
+
+    /// A matrix multiplied by a point
+    #[test]
+    fn matrix_transform_v() {
+        let a = matrix![
+            1, 2, 3, 4;
+            2, 4, 4, 2;
+            8, 6, 4, 1;
+            0, 0, 0, 1;
+        ];
+        let b = vector(1, 2, 3);
+        assert_eq!(a * b, vector(14, 22, 32));
     }
 
     /// Multiplying a matrix by the identity matrix
@@ -504,8 +533,10 @@ mod tests {
     /// Multiplying the identity matrix by a tuple
     #[test]
     fn matrix_transform_ident() {
-        let a = tuple(1, 2, 4, 3);
+        let a = point(1, 2, 4);
+        let b = vector(1, 2, 4);
         assert_eq!(Matrix::identity() * a, a);
+        assert_eq!(Matrix::identity() * b, b);
     }
 
     /// Transposing a matrix
