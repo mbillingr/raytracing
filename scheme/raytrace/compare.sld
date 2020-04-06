@@ -1,9 +1,8 @@
 (define-library (raytrace compare)
   (export almost=)
-  (import (scheme base))
+  (import (scheme base)
+          (raytrace constants))
   (begin
-    (define EPSILON 0.00001)
-
     (define (almost= a b)
       (< (abs (- a b))
          EPSILON))

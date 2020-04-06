@@ -1,3 +1,4 @@
+use crate::approx_eq::EPSILON;
 use crate::matrix::Matrix;
 use crate::shapes::Shape;
 use crate::tuple::{Point, Vector};
@@ -49,13 +50,16 @@ impl<'a> Intersection<'a> {
         let eyev = -ray.direction();
         let normalv = self.obj.normal_at(point);
         let inside = normalv.dot(&eyev) < 0.0;
+        let normalv = if inside { -normalv } else { normalv };
+        let over_point = point + normalv * EPSILON;
         IntersectionState {
             t: self.t,
             obj: self.obj,
             inside,
             point,
+            over_point,
             eyev,
-            normalv: if inside { -normalv } else { normalv },
+            normalv,
         }
     }
 }
@@ -78,6 +82,7 @@ pub struct IntersectionState<'a> {
     pub obj: &'a dyn Shape,
     pub inside: bool,
     pub point: Point,
+    pub over_point: Point,
     pub eyev: Vector,
     pub normalv: Vector,
 }
@@ -245,5 +250,16 @@ mod tests {
         assert!(comps.inside);
         assert_almost_eq!(comps.point, point(0, 0, 1));
         assert_almost_eq!(comps.normalv, vector(0, 0, -1)); // inverted!
+    }
+
+    /// The hit should offset the point
+    #[test]
+    fn offset() {
+        let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
+        let shape = Sphere::new().with_transform(translation(0, 0, 1));
+        let i = Intersection::new(5.0, &shape);
+        let comps = i.prepare_computations(&r);
+        assert!(comps.over_point.z() < -EPSILON / 2.0);
+        assert!(comps.over_point.z() < comps.point.z());
     }
 }

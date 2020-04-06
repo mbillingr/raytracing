@@ -57,7 +57,7 @@ impl World {
                     comps.point,
                     comps.eyev,
                     comps.normalv,
-                    false,
+                    self.is_shadowed(&light, comps.over_point),
                 )
         })
     }
@@ -89,7 +89,7 @@ mod tests {
     use crate::approx_eq::FindSimilar;
     use crate::color::color;
     use crate::materials::Phong;
-    use crate::matrix::scaling;
+    use crate::matrix::{scaling, translation};
     use crate::shapes::Sphere;
     use crate::tuple::{point, vector};
 
@@ -222,5 +222,20 @@ mod tests {
         let w = World::default();
         let p = point(-2, 2, -2);
         assert!(!w.is_shadowed(&w.lights[0], p))
+    }
+
+    /// Shading an intersection in shadow
+    #[test]
+    fn shadow5() {
+        let mut w = World::new();
+        w.add_light(PointLight::new(point(0, 0, -10), color(1, 1, 1)));
+        w.add_shape(Sphere::new());
+        w.add_shape(Sphere::new().with_transform(translation(0, 0, 10)));
+
+        let r = Ray::new(point(0, 0, 5), vector(0, 0, 1));
+        let i = Intersection::new(4.0, &*w.objects[1]);
+        let comps = i.prepare_computations(&r);
+        let c = w.shade_hit(comps);
+        assert_almost_eq!(c, color(0.1, 0.1, 0.1));
     }
 }

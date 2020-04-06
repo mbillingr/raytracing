@@ -1,7 +1,8 @@
 (define-library (raytrace world)
   (export empty-world default-world make-world
           prepare-computations
-          comp-t comp-object comp-point comp-eyev comp-normalv comp-inside?)
+          comp-t comp-object comp-point comp-over-point comp-eyev
+          comp-normalv comp-inside?)
   (import (scheme base)
           (scheme inexact)
           (scheme write)
@@ -11,7 +12,8 @@
           (raytrace transformations)
           (raytrace material)
           (raytrace lights)
-          (raytrace shapes))
+          (raytrace shapes)
+          (raytrace constants))
   (begin
     (define (empty-world)
       (make-world '() '()))
@@ -40,13 +42,14 @@
         (let loop ((l lights))
           (if (null? l)
               (color 0 0 0)
-              (color+ (lighting ((comp-object comps) 'material)
-                                (car l)
-                                (comp-point comps)
-                                (comp-eyev comps)
-                                (comp-normalv comps)
-                                #f)
-                      (loop (cdr l))))))
+              (begin
+                (color+ (lighting ((comp-object comps) 'material)
+                                  (car l)
+                                  (comp-point comps)
+                                  (comp-eyev comps)
+                                  (comp-normalv comps)
+                                  (is-shadowed (car l) (comp-over-point comps)))
+                        (loop (cdr l)))))))
 
       (define (color-at ray)
         (let ((i (hit (intersect ray))))
@@ -95,16 +98,18 @@
              (pos (ray-position ray t))
              (eyev (tuple-neg (ray-direction ray)))
              (normv (obj 'normal-at pos))
-             (inside (< (dot normv eyev) 0)))
-        (make-comp t obj inside pos eyev
-          (if inside (tuple-neg normv) normv))))
+             (inside (< (dot normv eyev) 0))
+             (normv (if inside (tuple-neg normv) normv))
+             (over-pos (tuple-add pos (tuple-scale normv EPSILON))))
+        (make-comp t obj inside pos over-pos eyev normv)))
 
     (define-record-type <comp>
-      (make-comp t object inside? point eyev normalv)
+      (make-comp t object inside? point over-point eyev normalv)
       comp?
       (t comp-t)
       (object comp-object)
       (inside? comp-inside?)
       (point comp-point)
+      (over-point comp-over-point)
       (eyev comp-eyev)
       (normalv comp-normalv))))

@@ -10,7 +10,7 @@ pub trait ApproximateEq<T: ?Sized = Self> {
     fn approx_eq(&self, other: &T) -> bool;
 }
 
-const EPSILON: f64 = 1e-5;
+pub const EPSILON: f64 = 1e-5;
 
 impl ApproximateEq for f64 {
     fn approx_eq(&self, other: &Self) -> bool {

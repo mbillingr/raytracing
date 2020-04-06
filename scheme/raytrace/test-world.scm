@@ -6,7 +6,8 @@
         (raytrace lights)
         (raytrace shapes)
         (raytrace material)
-        (raytrace ray))
+        (raytrace ray)
+        (raytrace constants))
 
 (test "Creating a world"
   (given (w <- (empty-world)))
@@ -127,3 +128,28 @@
   (given (w <- (default-world))
          (p <- (point -2 2 -2)))
   (then ((w 'is-shadowed (car (w 'lights)) p) == #f)))
+
+(test "The hit should offset the point"
+  (given (r <- (ray (point 0 0 -5) (vec 0 0 1)))
+         (shape <- (sphere))
+         (i <- (intersection 5 shape)))
+  (when (shape 'set-transform! (translation 0 0 1))
+        (comps <- (prepare-computations i r)))
+  (then ((< (tuple-z (comp-over-point comps))
+            (/ EPSILON -2))
+         == #t)
+        ((< (tuple-z (comp-over-point comps))
+            (tuple-z (comp-point comps)))
+         == #t)))
+
+(test "Shading an intersection in shadow"
+  (given (s1 <- (sphere))
+         (s2 <- (sphere))
+         (r <- (ray (point 0 0 5) (vec 0 0 1))))
+  (when  (s2 'set-transform! (translation 0 0 10))
+         (w <- (make-world (list s1 s2)
+                           (list (point-light (point 0 0 -10) (color 1 1 1)))))
+         (i <- (intersection 4 s2))
+         (comps <- (prepare-computations i r))
+         (c <- (w 'shade-hit comps)))
+  (then (c == (color 0.1 0.1 0.1))))
