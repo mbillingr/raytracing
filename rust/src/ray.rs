@@ -1,6 +1,6 @@
 use crate::matrix::Matrix;
 use crate::shapes::Shape;
-use crate::tuple::Tuple;
+use crate::tuple::{Point, Tuple, Vector};
 
 pub struct Ray {
     origin: Tuple,
@@ -42,6 +42,21 @@ impl<'a> Intersection<'a> {
     pub fn new(t: f64, obj: &'a dyn Shape) -> Self {
         Intersection { t, obj }
     }
+
+    pub fn prepare_computations(&self, ray: &Ray) -> IntersectionState {
+        let point = ray.position(self.t);
+        let eyev = -ray.direction();
+        let normalv = self.obj.normal_at(point);
+        let inside = normalv.dot(&eyev) < 0.0;
+        IntersectionState {
+            t: self.t,
+            obj: self.obj,
+            inside,
+            point,
+            eyev,
+            normalv: if inside { -normalv } else { normalv },
+        }
+    }
 }
 
 pub fn hit<'a>(xs: &[Intersection<'a>]) -> Option<Intersection<'a>> {
@@ -55,6 +70,15 @@ pub fn hit<'a>(xs: &[Intersection<'a>]) -> Option<Intersection<'a>> {
         .copied()
 }
 
+pub struct IntersectionState<'a> {
+    pub t: f64,
+    pub obj: &'a dyn Shape,
+    pub inside: bool,
+    pub point: Point,
+    pub eyev: Vector,
+    pub normalv: Vector,
+}
+
 #[macro_export]
 macro_rules! intersections {
     ($($x:expr),* $(,)?) => {
@@ -65,6 +89,7 @@ macro_rules! intersections {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::approx_eq::ApproximateEq;
     use crate::matrix::{rotation_x, scaling, translation};
     use crate::shapes::Sphere;
     use crate::tuple::{point, vector};
@@ -185,5 +210,32 @@ mod tests {
         let r2 = r.transform(m);
         assert_eq!(r2.origin(), point(1, -3, 2));
         assert_eq!(r2.direction(), vector(0, 0, 1));
+    }
+
+    /// Precomputing the state of an intersection
+    #[test]
+    fn precompute_outside() {
+        let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
+        let shape = Sphere::new();
+        let i = Intersection::new(4.0, &shape);
+        let comps = i.prepare_computations(&r);
+        assert_eq!(comps.t, i.t);
+        assert_eq!(comps.obj, i.obj);
+        assert!(!comps.inside);
+        assert_almost_eq!(comps.point, point(0, 0, -1));
+        assert_almost_eq!(comps.eyev, vector(0, 0, -1));
+        assert_almost_eq!(comps.normalv, vector(0, 0, -1));
+    }
+
+    /// The hit, when an intersection occurs on the inside
+    #[test]
+    fn precompute_inside() {
+        let r = Ray::new(point(0, 0, 0), vector(0, 0, 1));
+        let shape = Sphere::new();
+        let i = Intersection::new(1.0, &shape);
+        let comps = i.prepare_computations(&r);
+        assert!(comps.inside);
+        assert_almost_eq!(comps.point, point(0, 0, 1));
+        assert_almost_eq!(comps.normalv, vector(0, 0, -1)); // inverted!
     }
 }

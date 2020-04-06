@@ -1,14 +1,22 @@
+use crate::approx_eq::ApproximateEq;
 use crate::materials::Phong;
 use crate::matrix::Matrix;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::Shape;
 use crate::tuple::{point, vector, Tuple};
+use std::any::Any;
 
 #[derive(Debug)]
 pub struct Sphere {
     transform: Matrix,
     inv_transform: Matrix,
     material: Phong,
+}
+
+impl ApproximateEq for Sphere {
+    fn approx_eq(&self, other: &Self) -> bool {
+        self.transform.approx_eq(&other.transform) && self.material.approx_eq(&other.material)
+    }
 }
 
 impl Sphere {
@@ -19,9 +27,33 @@ impl Sphere {
             material: Phong::default(),
         }
     }
+
+    pub fn with_material(self, material: Phong) -> Self {
+        Sphere { material, ..self }
+    }
+
+    pub fn with_transform(self, transform: Matrix) -> Self {
+        Sphere {
+            transform,
+            inv_transform: transform.inverse(),
+            ..self
+        }
+    }
 }
 
 impl Shape for Sphere {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_similar(&self, other: &dyn Shape) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .map(|other| self.approx_eq(other))
+            .unwrap_or(false)
+    }
+
     fn intersect(&self, ray: &Ray) -> Vec<Intersection> {
         let ray = ray.transform(*self.inv_transform());
         let sphere_to_ray = ray.origin() - point(0, 0, 0);

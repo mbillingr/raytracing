@@ -28,6 +28,26 @@ impl Phong {
         }
     }
 
+    pub fn with_color(self, color: Color) -> Self {
+        Phong { color, ..self }
+    }
+
+    pub fn with_ambient(self, ambient: f64) -> Self {
+        Phong { ambient, ..self }
+    }
+
+    pub fn with_diffuse(self, diffuse: f64) -> Self {
+        Phong { diffuse, ..self }
+    }
+
+    pub fn with_specular(self, specular: f64) -> Self {
+        Phong { specular, ..self }
+    }
+
+    pub fn with_shininess(self, shininess: f64) -> Self {
+        Phong { shininess, ..self }
+    }
+
     pub fn color(&self) -> Color {
         self.color
     }

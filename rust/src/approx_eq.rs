@@ -1,9 +1,12 @@
 use crate::color::Color;
+use crate::lights::PointLight;
 use crate::materials::Phong;
 use crate::matrix::Matrix;
+use crate::shapes::Shape;
 use crate::tuple::Tuple;
+use std::ops::Deref;
 
-pub trait ApproximateEq<T = Self> {
+pub trait ApproximateEq<T: ?Sized = Self> {
     fn approx_eq(&self, other: &T) -> bool;
 }
 
@@ -47,6 +50,40 @@ impl ApproximateEq for Phong {
             && self.ambient().approx_eq(&other.ambient())
             && self.diffuse().approx_eq(&other.diffuse())
             && self.specular().approx_eq(&other.specular())
+    }
+}
+
+impl ApproximateEq for PointLight {
+    fn approx_eq(&self, other: &Self) -> bool {
+        self.position().approx_eq(&other.position())
+            && self.intensity().approx_eq(&other.intensity())
+    }
+}
+
+impl<T: Deref<Target = dyn Shape>> ApproximateEq<T> for dyn Shape {
+    fn approx_eq(&self, other: &T) -> bool {
+        self.is_similar(&**other)
+    }
+}
+
+pub trait FindSimilar<T: ?Sized + ApproximateEq<Self::Item>> {
+    type Item;
+
+    fn find_similar(&self, item: &T) -> Option<&Self::Item>;
+
+    fn contains_similar(&self, item: &T) -> bool {
+        self.find_similar(item).is_some()
+    }
+}
+
+impl<S, T> FindSimilar<S> for [T]
+where
+    S: ApproximateEq<T>,
+    S: ?Sized,
+{
+    type Item = T;
+    fn find_similar(&self, item: &S) -> Option<&T> {
+        self.iter().find(|&x| item.approx_eq(x))
     }
 }
 
