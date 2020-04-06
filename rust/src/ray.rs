@@ -2,6 +2,7 @@ use crate::matrix::Matrix;
 use crate::shapes::Shape;
 use crate::tuple::{Point, Tuple, Vector};
 
+#[derive(Debug)]
 pub struct Ray {
     origin: Tuple,
     direction: Tuple,

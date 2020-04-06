@@ -3,6 +3,8 @@ use crate::matrix::Matrix;
 use crate::ray::Ray;
 use crate::tuple::{point, Point, Vector};
 use crate::world::World;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 #[derive(Debug, Clone)]
 pub struct Camera {
@@ -108,9 +110,10 @@ impl Camera {
     }
 
     pub fn render_to_canvas(&self, world: &World, canvas: &mut Canvas) {
-        let coordinates: Vec<_> = (0..self.hsize)
-            .flat_map(|y| (0..self.vsize).map(move |x| (x, y)))
+        let mut coordinates: Vec<_> = (0..self.vsize)
+            .flat_map(|y| (0..self.hsize).map(move |x| (x, y)))
             .collect();
+        coordinates.shuffle(&mut thread_rng());
         for (x, y, color) in coordinates
             .into_iter()
             .map(|(x, y)| (x, y, self.ray_for_pixel(x, y)))

@@ -292,8 +292,9 @@ impl Mul<Tuple> for Matrix {
             Identity => rhs,
             Full(mat) => Tuple(row_mat4_transform(mat, rhs.0)),
             Transposed(mat) => Tuple(col_mat4_transform(mat, rhs.0)),
-            Translate([dx, dy, dz]) if rhs.is_point() => rhs + vector(dx, dy, dz),
-            Translate(_) => rhs,
+            /*Translate([dx, dy, dz]) if rhs.is_point() => rhs + vector(dx, dy, dz),
+            Translate(_) => rhs,*/
+            Translate([dx, dy, dz]) => rhs + vector(dx, dy, dz) * rhs.w(), // .is_point is not reliable because of rounding
             Scale([sx, sy, sz]) => tuple(rhs.x() * sx, rhs.y() * sy, rhs.z() * sz, rhs.w()),
             Rotate(q) => {
                 let [x, y, z] = quaternion::rotate_vector(q, [rhs.x(), rhs.y(), rhs.z()]);

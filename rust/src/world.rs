@@ -37,6 +37,14 @@ impl World {
         }
     }
 
+    pub fn add_light(&mut self, light: PointLight) {
+        self.lights.push(light);
+    }
+
+    pub fn add_shape(&mut self, shape: impl Shape) {
+        self.objects.push(Box::new(shape));
+    }
+
     pub fn color_at(&self, ray: &Ray) -> Option<Color> {
         hit(&self.intersect(ray)).map(|i| self.shade_hit(i.prepare_computations(&ray)))
     }

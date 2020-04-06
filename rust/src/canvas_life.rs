@@ -21,13 +21,26 @@ impl Canvas {
 
         let width = self.width() as u32;
         let height = self.height() as u32;
+        let aspect = width as f64 / height as f64;
+
+        let winsize = 900;
+
+        let win_w;
+        let win_h;
+        if width >= height {
+            win_w = winsize;
+            win_h = (winsize as f64 / aspect) as u32;
+        } else {
+            win_w = (winsize as f64 * aspect) as u32;
+            win_h = winsize;
+        }
 
         let h = thread::spawn(move || {
             let sdl_context = sdl2::init().unwrap();
             let video_subsystem = sdl_context.video().unwrap();
 
             let window = video_subsystem
-                .window(window_name, 750, 750)
+                .window(window_name, win_w, win_h)
                 .position_centered()
                 .build()
                 .unwrap();
