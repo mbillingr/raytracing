@@ -61,14 +61,16 @@ impl<'a> Intersection<'a> {
 }
 
 pub fn hit<'a>(xs: &[Intersection<'a>]) -> Option<Intersection<'a>> {
-    xs.iter()
-        .fold(None, |h, i| match (h, i.t) {
-            (_, t) if t < 0.0 => h,
-            (None, _) => Some(i),
-            (Some(h), t) if t < h.t => Some(i),
-            _ => h,
-        })
-        .copied()
+    /*xs.iter()
+    .fold(None, |h, i| match (h, i.t) {
+        (_, t) if t < 0.0 => h,
+        (None, _) => Some(i),
+        (Some(h), t) if t < h.t => Some(i),
+        _ => h,
+    })
+    .copied()*/
+    // optimization: assume sorted list, so return first non-negative hit
+    xs.iter().filter(|i| i.t >= 0.0).next().copied()
 }
 
 pub struct IntersectionState<'a> {
@@ -82,9 +84,14 @@ pub struct IntersectionState<'a> {
 
 #[macro_export]
 macro_rules! intersections {
-    ($($x:expr),* $(,)?) => {
-        vec![$($x),*]
-    }
+    ($($x:expr),* $(,)?) => {{
+        let mut xs: Vec<Intersection> = vec![$($x),*];
+        xs.sort_unstable_by(|a, b| {
+            a.t.partial_cmp(&b.t)
+                .expect("Unable to compare intersection distances")
+        });
+        xs
+    }}
 }
 
 #[cfg(test)]
