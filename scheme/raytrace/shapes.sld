@@ -7,7 +7,8 @@
           (raytrace matrix)
           (raytrace transformations)
           (raytrace material)
-          (raytrace constants))
+          (raytrace constants)
+          (raytrace compare))
   (begin
     (define (sphere)
       (make-shape (sphere-geometry)))
@@ -81,8 +82,7 @@
 
     (define (plane-geometry)
       (define (intersect shape local-ray)
-        (if (< (abs (tuple-y (ray-direction local-ray)))
-               EPSILON)
+        (if (almost= 0 (tuple-y (ray-direction local-ray)))
             (intersections)
             (intersections
               (intersection (/ (- (tuple-y (ray-origin local-ray)))
