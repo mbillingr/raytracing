@@ -1,5 +1,7 @@
+mod plane;
 mod sphere;
 
+pub use plane::plane;
 pub use sphere::sphere;
 
 use crate::approx_eq::ApproximateEq;

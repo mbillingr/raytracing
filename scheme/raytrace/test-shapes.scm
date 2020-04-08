@@ -186,3 +186,39 @@
          (m <- (material (color 1 0 0) 1 1 0 200)))
   (when (s 'set-material! m))
   (then ((s 'material) == m)))
+
+;; sphere shape
+;; ===========================================================================
+
+(test "The normal of a plane is constant everywhere"
+  (given (p <- (plane)))
+  (when (n1 <- (p 'normal-at (point 0 0 0)))
+        (n2 <- (p 'normal-at (point 10 0 -10)))
+        (n3 <- (p 'normal-at (point -5 0 150))))
+  (then (n1 == (vec 0 1 0))
+        (n2 == (vec 0 1 0))
+        (n3 == (vec 0 1 0))))
+
+(test "Intersect with a ray parallel to the plane"
+  (given (p <- (plane))
+         (r <- (ray (point 0 10 0) (vec 0 0 1))))
+  (when (xs <- (p 'intersect r)))
+  (then (xs == '())))
+
+(test "Intersect plane with a coplanar ray"
+  (given (p <- (plane))
+         (r <- (ray (point 0 0 0) (vec 0 0 1))))
+  (when (xs <- (p 'intersect r)))
+  (then (xs == '())))
+
+(test "A ray intersecting a plane from above"
+  (given (p <- (plane))
+         (r <- (ray (point 0 1 0) (vec 0 -1 0))))
+  (when (xs <- (p 'intersect r)))
+  (then (xs == `((1.0 . ,p)))))
+
+(test "A ray intersecting a plane from below"
+  (given (p <- (plane))
+         (r <- (ray (point 0 -1 0) (vec 0 1 0))))
+  (when (xs <- (p 'intersect r)))
+  (then (xs == `((1.0 . ,p)))))

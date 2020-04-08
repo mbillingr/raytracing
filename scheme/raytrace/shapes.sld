@@ -1,15 +1,19 @@
 (define-library (raytrace shapes)
-  (export make-shape sphere)
+  (export make-shape sphere plane)
   (import (scheme base)
           (scheme inexact)
           (raytrace tuple)
           (raytrace ray)
           (raytrace matrix)
           (raytrace transformations)
-          (raytrace material))
+          (raytrace material)
+          (raytrace constants))
   (begin
     (define (sphere)
       (make-shape (sphere-geometry)))
+
+    (define (plane)
+      (make-shape (plane-geometry)))
 
     (define (make-shape geometry)
       (define transform (identity-transform))
@@ -72,5 +76,25 @@
         (cond ((eq? m 'intersect) (intersect (car args) (cadr args)))
               ((eq? m 'normal-at) (normal-at (car args)))
               (else (error "unknown method (sphere-geometry m ...)" m))))
+
+      dispatch)
+
+    (define (plane-geometry)
+      (define (intersect shape local-ray)
+        (if (< (abs (tuple-y (ray-direction local-ray)))
+               EPSILON)
+            (intersections)
+            (intersections
+              (intersection (/ (- (tuple-y (ray-origin local-ray)))
+                               (tuple-y (ray-direction local-ray)))
+                            shape))))
+
+      (define (normal-at local-p)
+        (vec 0 1 0))
+
+      (define (dispatch m . args)
+        (cond ((eq? m 'intersect) (intersect (car args) (cadr args)))
+              ((eq? m 'normal-at) (normal-at (car args)))
+              (else (error "unknown method (plane-geometry m ...)" m))))
 
       dispatch)))
