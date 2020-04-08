@@ -3,7 +3,7 @@ use raytracing::color::color;
 use raytracing::lights::PointLight;
 use raytracing::materials::Phong;
 use raytracing::matrix::{rotation_x, rotation_y, scaling, translation};
-use raytracing::shapes::Sphere;
+use raytracing::shapes::sphere;
 use raytracing::tuple::{point, vector};
 use raytracing::world::World;
 use std::f64::consts::PI;
@@ -16,12 +16,12 @@ fn main() {
 
     let floor_material = Phong::new(color(1, 0.9, 0.9), 0.1, 0.9, 0.0, 100.0);
 
-    let floor = Sphere::new()
+    let floor = sphere()
         .with_transform(scaling(10, 0.01, 10))
         .with_material(floor_material.clone());
     world.add_shape(floor);
 
-    let left_wall = Sphere::new()
+    let left_wall = sphere()
         .with_transform(
             translation(0, 0, 5)
                 * rotation_y(-PI / 4.0)
@@ -31,7 +31,7 @@ fn main() {
         .with_material(floor_material.clone());
     world.add_shape(left_wall);
 
-    let right_wall = Sphere::new()
+    let right_wall = sphere()
         .with_transform(
             translation(0, 0, 5)
                 * rotation_y(PI / 4.0)
@@ -41,17 +41,17 @@ fn main() {
         .with_material(floor_material.clone());
     world.add_shape(right_wall);
 
-    let middle = Sphere::new()
+    let middle = sphere()
         .with_transform(translation(-0.5, 1, 0.5))
         .with_material(Phong::new(color(0.1, 1, 0.5), 0.1, 0.7, 0.3, 200.0));
     world.add_shape(middle);
 
-    let right = Sphere::new()
+    let right = sphere()
         .with_transform(translation(1.5, 0.5, -0.5) * scaling(0.5, 0.5, 0.5))
         .with_material(Phong::new(color(0.5, 1, 0.1), 0.1, 0.7, 0.3, 200.0));
     world.add_shape(right);
 
-    let left = Sphere::new()
+    let left = sphere()
         .with_transform(translation(-1.5, 0.33, -0.75) * scaling(0.33, 0.33, 0.33))
         .with_material(Phong::new(color(1, 0.8, 0.1), 0.1, 0.7, 0.3, 200.0));
     world.add_shape(left);

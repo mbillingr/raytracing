@@ -3,7 +3,7 @@ use raytracing::color::color;
 use raytracing::lights::PointLight;
 use raytracing::materials::Phong;
 use raytracing::ray::{hit, Intersection, Ray};
-use raytracing::shapes::{Shape, Sphere};
+use raytracing::shapes::sphere;
 use raytracing::tuple::{point, vector};
 use std::fs::File;
 
@@ -12,7 +12,7 @@ fn main() {
     let mut canvas = Canvas::new(width, height);
     canvas.life_view("Canvas view");
 
-    let mut sphere = Sphere::new();
+    let mut sphere = sphere();
     sphere.set_material(Phong::new(color(0.2, 0.8, 0.9), 0.1, 0.9, 0.9, 20.0));
 
     let scene = vec![sphere];

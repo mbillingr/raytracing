@@ -3,7 +3,7 @@ use crate::matrix::Matrix;
 use crate::shapes::Shape;
 use crate::tuple::{Point, Vector};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ray {
     origin: Point,
     direction: Vector,
@@ -34,14 +34,20 @@ impl Ray {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone)]
 pub struct Intersection<'a> {
     pub t: f64,
-    pub obj: &'a dyn Shape,
+    pub obj: &'a Shape,
+}
+
+impl PartialEq for Intersection<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.t == other.t && std::ptr::eq(self.obj, other.obj)
+    }
 }
 
 impl<'a> Intersection<'a> {
-    pub fn new(t: f64, obj: &'a dyn Shape) -> Self {
+    pub fn new(t: f64, obj: &'a Shape) -> Self {
         Intersection { t, obj }
     }
 
@@ -79,7 +85,7 @@ pub fn hit<'a>(xs: &[Intersection<'a>]) -> Option<Intersection<'a>> {
 
 pub struct IntersectionState<'a> {
     pub t: f64,
-    pub obj: &'a dyn Shape,
+    pub obj: &'a Shape,
     pub inside: bool,
     pub point: Point,
     pub over_point: Point,
@@ -104,7 +110,7 @@ mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
     use crate::matrix::{rotation_x, scaling, translation};
-    use crate::shapes::Sphere;
+    use crate::shapes::sphere;
     use crate::tuple::{point, vector};
     use std::f32::consts::PI;
 
@@ -131,7 +137,7 @@ mod tests {
     /// An intersection encapsulates t and object
     #[test]
     fn intersection() {
-        let s = Sphere::new();
+        let s = sphere();
         let i = Intersection::new(3.5, &s);
         assert_eq!(i.t, 3.5);
         assert_eq!(i.obj as *const _, &s as *const _);
@@ -140,7 +146,7 @@ mod tests {
     /// Aggregating intersections
     #[test]
     fn intersections() {
-        let s = Sphere::new();
+        let s = sphere();
         let i1 = Intersection::new(1.0, &s);
         let i2 = Intersection::new(2.0, &s);
         let xs = intersections![i1, i2];
@@ -152,7 +158,7 @@ mod tests {
     /// The hit, when all intersections have positive t
     #[test]
     fn hit_positive() {
-        let s = Sphere::new();
+        let s = sphere();
         let i1 = Intersection::new(1.0, &s);
         let i2 = Intersection::new(2.0, &s);
         let xs = intersections![i2, i1];
@@ -163,7 +169,7 @@ mod tests {
     /// The hit, when some intersections have negative t
     #[test]
     fn hit_part_negative() {
-        let s = Sphere::new();
+        let s = sphere();
         let i1 = Intersection::new(-1.0, &s);
         let i2 = Intersection::new(1.0, &s);
         let xs = intersections![i2, i1];
@@ -174,7 +180,7 @@ mod tests {
     /// The hit, when all intersections have negative t
     #[test]
     fn hit_negative() {
-        let s = Sphere::new();
+        let s = sphere();
         let i1 = Intersection::new(-2.0, &s);
         let i2 = Intersection::new(-1.0, &s);
         let xs = intersections![i2, i1];
@@ -185,7 +191,7 @@ mod tests {
     /// The hit is always the lowest nonnegative intersection
     #[test]
     fn hit_lowest_positive() {
-        let s = Sphere::new();
+        let s = sphere();
         let i1 = Intersection::new(5.0, &s);
         let i2 = Intersection::new(7.0, &s);
         let i3 = Intersection::new(-3.0, &s);
@@ -229,11 +235,11 @@ mod tests {
     #[test]
     fn precompute_outside() {
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
-        let shape = Sphere::new();
+        let shape = sphere();
         let i = Intersection::new(4.0, &shape);
         let comps = i.prepare_computations(&r);
         assert_eq!(comps.t, i.t);
-        assert_eq!(comps.obj, i.obj);
+        assert_eq!(comps.obj as *const _, i.obj as *const _);
         assert!(!comps.inside);
         assert_almost_eq!(comps.point, point(0, 0, -1));
         assert_almost_eq!(comps.eyev, vector(0, 0, -1));
@@ -244,7 +250,7 @@ mod tests {
     #[test]
     fn precompute_inside() {
         let r = Ray::new(point(0, 0, 0), vector(0, 0, 1));
-        let shape = Sphere::new();
+        let shape = sphere();
         let i = Intersection::new(1.0, &shape);
         let comps = i.prepare_computations(&r);
         assert!(comps.inside);
@@ -256,7 +262,7 @@ mod tests {
     #[test]
     fn offset() {
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
-        let shape = Sphere::new().with_transform(translation(0, 0, 1));
+        let shape = sphere().with_transform(translation(0, 0, 1));
         let i = Intersection::new(5.0, &shape);
         let comps = i.prepare_computations(&r);
         assert!(comps.over_point.z() < -EPSILON / 2.0);

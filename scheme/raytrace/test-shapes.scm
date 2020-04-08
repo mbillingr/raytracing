@@ -8,6 +8,75 @@
         (raytrace constants)
         (raytrace material))
 
+;; generic shapes
+;; ===========================================================================
+
+(define (test-shape)
+  (make-shape (test-geometry)))
+
+(define (test-geometry)
+  (define last-ray #f)
+  (define (intersect shape r) (set! last-ray r))
+  (define (normal-at p) (vec (tuple-x p) (tuple-y p) (tuple-z p)))
+  (define (dispatch m . args)
+    (cond ((eq? m 'intersect) (intersect (car args) (cadr args)))
+          ((eq? m 'normal-at) (normal-at (car args)))
+          ((eq? m 'last-ray) last-ray)
+          (else (error "unknown method (test-geometry m ...)" m))))
+  dispatch)
+
+(test "The default transformation"
+  (given (s <- (test-shape)))
+  (then ((s 'transform) == (identity-transform))))
+
+(test "Assigning a transformation"
+  (given (s <- (test-shape)))
+  (when (s 'set-transform! (translation 2 3 4)))
+  (then ((s 'transform) == (translation 2 3 4))))
+
+(test "A shape has a default material"
+  (given (s <- (test-shape)))
+  (when (m <- (s 'material)))
+  (then (m == (default-material))))
+
+(test "A shape may be assigned a material"
+  (given (s <- (test-shape))
+         (m <- (material (color 1 0 0) 1 1 0 200)))
+  (when (s 'set-material! m))
+  (then ((s 'material) == m)))
+
+(test "Intersecting a scaled shape with a ray"
+  (given (r <- (ray (point 0 0 -5) (vec 0 0 1)))
+         (s <- (test-shape)))
+  (when (s 'set-transform! (scaling 2 2 2))
+        (xs <- (s 'intersect r)))
+  (then ((ray-origin (s 'last-ray)) == (point 0 0 -2.5))
+        ((ray-direction (s 'last-ray)) == (vec 0 0 0.5))))
+
+(test "Intersecting a translated shape with a ray"
+  (given (r <- (ray (point 0 0 -5) (vec 0 0 1)))
+         (s <- (test-shape)))
+  (when (s 'set-transform! (translation 5 0 0))
+        (xs <- (s 'intersect r)))
+  (then ((ray-origin (s 'last-ray)) == (point -5 0 -5))
+        ((ray-direction (s 'last-ray)) == (vec 0 0 1))))
+
+(test "Computing the normal on a translated shape"
+  (given (s <- (test-shape)))
+  (when (s 'set-transform! (translation 0 1 0))
+        (n <- (s 'normal-at (point 0 1.70711 0.70711))))
+  (then (n == (vec 0 0.70711 0.70711))))
+
+(test "Computing the normal on a transformed shape"
+  (given (s <- (test-shape))
+         (m <- (m4* (scaling 1 0.5 1) (rotation-z (/ PI 5)))))
+  (when (s 'set-transform! m)
+        (n <- (s 'normal-at (point 0 SQRT2/2 (- SQRT2/2)))))
+  (then (n == (vec 0 0.97014 -0.24254))))
+
+;; sphere shape
+;; ===========================================================================
+
 (test "A ray intersects a sphere at two points"
   (given (r <- (ray (point 0 0 -5) (vec 0 0 1)))
          (s <- (sphere)))

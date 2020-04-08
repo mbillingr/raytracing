@@ -41,7 +41,7 @@ impl Point {
 pub struct Vector(pub(crate) Vector4<f64>);
 
 impl Vector {
-    fn new(x: f64, y: f64, z: f64) -> Self {
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
         Vector([x, y, z, 0.0])
     }
 

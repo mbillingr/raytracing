@@ -1,7 +1,7 @@
 use raytracing::canvas::Canvas;
 use raytracing::color::color;
 use raytracing::ray::{hit, Intersection, Ray};
-use raytracing::shapes::{Shape, Sphere};
+use raytracing::shapes::sphere;
 use raytracing::tuple::{point, vector};
 use std::fs::File;
 
@@ -10,7 +10,7 @@ fn main() {
     let mut canvas = Canvas::new(width, height);
     canvas.life_view("Canvas view");
 
-    let scene = vec![Sphere::new()];
+    let scene = vec![sphere()];
 
     let eye = point(0, 0, -10);
     let look = vector(0, 0, 3); // magnitude = focal length

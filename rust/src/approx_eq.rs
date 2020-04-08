@@ -4,7 +4,6 @@ use crate::materials::Phong;
 use crate::matrix::Matrix;
 use crate::shapes::Shape;
 use crate::tuple::{Point, Vector};
-use std::ops::Deref;
 
 pub trait ApproximateEq<T: ?Sized = Self> {
     fn approx_eq(&self, other: &T) -> bool;
@@ -69,9 +68,9 @@ impl ApproximateEq for PointLight {
     }
 }
 
-impl<T: Deref<Target = dyn Shape>> ApproximateEq<T> for dyn Shape {
-    fn approx_eq(&self, other: &T) -> bool {
-        self.is_similar(&**other)
+impl ApproximateEq for Shape {
+    fn approx_eq(&self, other: &Self) -> bool {
+        self.is_similar(other)
     }
 }
 

@@ -3,12 +3,12 @@ use crate::lights::PointLight;
 use crate::materials::Phong;
 use crate::matrix::scaling;
 use crate::ray::{hit, Intersection, IntersectionState, Ray};
-use crate::shapes::{Shape, Sphere};
+use crate::shapes::{sphere, Shape};
 use crate::tuple::{point, Point};
 
 pub struct World {
     lights: Vec<PointLight>,
-    objects: Vec<Box<dyn Shape>>,
+    objects: Vec<Shape>,
 }
 
 impl Default for World {
@@ -16,14 +16,8 @@ impl Default for World {
         World {
             lights: vec![PointLight::new(point(-10, 10, -10), color(1, 1, 1))],
             objects: vec![
-                Box::new(Sphere::new().with_material(Phong::new(
-                    color(0.8, 1.0, 0.6),
-                    0.1,
-                    0.7,
-                    0.2,
-                    200.0,
-                ))),
-                Box::new(Sphere::new().with_transform(scaling(0.5, 0.5, 0.5))),
+                sphere().with_material(Phong::new(color(0.8, 1.0, 0.6), 0.1, 0.7, 0.2, 200.0)),
+                sphere().with_transform(scaling(0.5, 0.5, 0.5)),
             ],
         }
     }
@@ -41,8 +35,8 @@ impl World {
         self.lights.push(light);
     }
 
-    pub fn add_shape(&mut self, shape: impl Shape) {
-        self.objects.push(Box::new(shape));
+    pub fn add_shape(&mut self, shape: Shape) {
+        self.objects.push(shape);
     }
 
     pub fn color_at(&self, ray: &Ray) -> Option<Color> {
@@ -90,7 +84,7 @@ mod tests {
     use crate::color::color;
     use crate::materials::Phong;
     use crate::matrix::{scaling, translation};
-    use crate::shapes::Sphere;
+    use crate::shapes::sphere;
     use crate::tuple::{point, vector};
 
     /// Creating a world
@@ -105,22 +99,20 @@ mod tests {
     #[test]
     fn default() {
         let light = PointLight::new(point(-10, 10, -10), color(1, 1, 1));
-        let s1 = Sphere::new().with_material(
+        let s1 = sphere().with_material(
             Phong::default()
                 .with_color(color(0.8, 1.0, 0.6))
                 .with_diffuse(0.7)
                 .with_specular(0.2),
         );
-        let s2 = Sphere::new().with_transform(scaling(0.5, 0.5, 0.5));
+        let s2 = sphere().with_transform(scaling(0.5, 0.5, 0.5));
         let w = World::default();
         assert_eq!(w.lights.len(), 1);
         assert!(w.lights.contains_similar(&light));
 
-        let s1: &dyn Shape = &s1;
-        let s2: &dyn Shape = &s2;
         assert_eq!(w.objects.len(), 2);
-        assert!(w.objects.contains_similar(s1));
-        assert!(w.objects.contains_similar(s2));
+        assert!(w.objects.contains_similar(&s1));
+        assert!(w.objects.contains_similar(&s2));
     }
 
     /// Intersect a world with a ray
@@ -141,7 +133,7 @@ mod tests {
     fn shade_intersection() {
         let w = World::default();
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
-        let shape = &*w.objects[0];
+        let shape = &w.objects[0];
         let i = Intersection::new(4.0, shape);
         let comps = i.prepare_computations(&r);
         let c = w.shade_hit(comps);
@@ -153,7 +145,7 @@ mod tests {
     fn shade_inner_intersection() {
         let mut w = World::default();
         let r = Ray::new(point(0, 0, 0), vector(0, 0, 1));
-        let shape = &*w.objects[1];
+        let shape = &w.objects[1];
         let i = Intersection::new(0.5, shape);
         w.lights = vec![PointLight::new(point(0, 0.25, 0), color(1, 1, 1))];
         let comps = i.prepare_computations(&r);
@@ -229,11 +221,11 @@ mod tests {
     fn shadow5() {
         let mut w = World::new();
         w.add_light(PointLight::new(point(0, 0, -10), color(1, 1, 1)));
-        w.add_shape(Sphere::new());
-        w.add_shape(Sphere::new().with_transform(translation(0, 0, 10)));
+        w.add_shape(sphere());
+        w.add_shape(sphere().with_transform(translation(0, 0, 10)));
 
         let r = Ray::new(point(0, 0, 5), vector(0, 0, 1));
-        let i = Intersection::new(4.0, &*w.objects[1]);
+        let i = Intersection::new(4.0, &w.objects[1]);
         let comps = i.prepare_computations(&r);
         let c = w.shade_hit(comps);
         assert_almost_eq!(c, color(0.1, 0.1, 0.1));
