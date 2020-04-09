@@ -33,6 +33,10 @@ impl Pattern {
         self.set_transform(t);
         self
     }
+
+    pub fn inv_transform(&self) -> &Matrix {
+        &self.inv_transform
+    }
 }
 
 impl std::fmt::Debug for Pattern {
@@ -51,12 +55,58 @@ impl PartialEq for Pattern {
 mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
-    use crate::color::{BLACK, WHITE};
+    use crate::color::{color, BLACK, WHITE};
     use crate::lights::PointLight;
     use crate::materials::Phong;
     use crate::matrix::{scaling, translation};
     use crate::shapes::sphere;
     use crate::tuple::{point, vector};
+
+    fn test_pattern() -> Pattern {
+        Pattern::new(|p| color(p.x(), p.y(), p.z()))
+    }
+
+    /// The default pattern transformation
+    #[test]
+    fn default_transform() {
+        let pattern = test_pattern();
+        assert_almost_eq!(pattern.inv_transform(), Matrix::identity());
+    }
+
+    /// Assigning a transformation
+    #[test]
+    fn assign_transform() {
+        let mut pattern = test_pattern();
+        pattern.set_transform(translation(1, 2, 3));
+        assert_almost_eq!(pattern.inv_transform(), translation(1, 2, 3).inverse());
+    }
+
+    /// A pattern with an object transformation
+    #[test]
+    fn obj_transform() {
+        let shape = sphere().with_transform(scaling(2, 2, 2));
+        let pattern = test_pattern();
+        let c = shape.pattern_at(&pattern, point(2, 3, 4));
+        assert_almost_eq!(c, color(1, 1.5, 2));
+    }
+
+    /// A pattern with a pattern transformation
+    #[test]
+    fn pat_transform() {
+        let shape = sphere();
+        let pattern = test_pattern().with_transform(scaling(2, 2, 2));
+        let c = shape.pattern_at(&pattern, point(2, 3, 4));
+        assert_almost_eq!(c, color(1, 1.5, 2));
+    }
+
+    /// A pattern with both an object and a pattern transformation
+    #[test]
+    fn objpat_transform() {
+        let shape = sphere().with_transform(scaling(2, 2, 2));
+        let pattern = test_pattern().with_transform(translation(0.5, 1, 1.5));
+        let c = shape.pattern_at(&pattern, point(2.5, 3, 3.5));
+        assert_almost_eq!(c, color(0.75, 0.5, 0.25));
+    }
 
     /// A stripe pattern is constant in y
     #[test]
@@ -99,36 +149,5 @@ mod tests {
         let c2 = m.lighting(&sphere(), &light, point(1.1, 0, 0), eyev, normalv, false);
         assert_almost_eq!(c1, WHITE);
         assert_almost_eq!(c2, BLACK);
-    }
-
-    /// Stripes with an object transformation
-    #[test]
-    fn stripe_otrans() {
-        let mut object = sphere();
-        object.set_transform(scaling(2, 2, 2));
-        let pattern = stripe_pattern(WHITE, BLACK);
-        let c = object.pattern_at(&pattern, point(1.5, 0, 0));
-        assert_almost_eq!(c, WHITE);
-    }
-
-    /// Stripes with a pattern transformation
-    #[test]
-    fn stripe_ptrans() {
-        let object = sphere();
-        let mut pattern = stripe_pattern(WHITE, BLACK);
-        pattern.set_transform(scaling(2, 2, 2));
-        let c = object.pattern_at(&pattern, point(1.5, 0, 0));
-        assert_almost_eq!(c, WHITE);
-    }
-
-    /// Stripes with both, a pattern and an object transformation
-    #[test]
-    fn stripe_optrans() {
-        let mut object = sphere();
-        object.set_transform(scaling(2, 2, 2));
-        let mut pattern = stripe_pattern(WHITE, BLACK);
-        pattern.set_transform(translation(0.5, 0, 0));
-        let c = object.pattern_at(&pattern, point(2.5, 0, 0));
-        assert_almost_eq!(c, WHITE);
     }
 }

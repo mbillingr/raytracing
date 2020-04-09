@@ -1,30 +1,26 @@
 (define-library (raytrace pattern)
-  (export stripe-pattern)
+  (export make-pattern stripe-pattern)
   (import (scheme base) (scheme write)
           (raytrace tuple)
           (raytrace transformations)
           (raytrace matrix))
   (begin
-    (define (stripe-pattern a b)
-      (define transform (identity-transform))
+    (define (make-pattern func)
       (define inv-transform (identity-transform))
 
-      (define (func point)
-        (if (= 0 (remainder
-                   (floor
-                     (tuple-x
-                       (m4* inv-transform
-                            point))) 
-                   2))
-            a
-            b))
-
       (define (dispatch m . args)
-        (cond ((eq? m 'at) (func (car args)))
-              ((eq? m 'a) a)
-              ((eq? m 'b) b)
+        (cond ((eq? m 'at) (func (m4* inv-transform (car args))))
               ((eq? m 'set-transform!)
-               (set! transform (car args))
                (set! inv-transform (m4-inverse (car args))))
+              ((eq? m 'inv-transform) inv-transform)
               (else (error "unknown method (pattern m ...)" m))))
-      dispatch)))
+      dispatch)
+
+    (define (stripe-pattern a b)
+      (make-pattern
+        (lambda (point)
+          (if (= 0 (remainder
+                     (floor (tuple-x point))
+                     2))
+              a
+              b))))))
