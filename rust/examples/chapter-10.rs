@@ -2,7 +2,7 @@ use raytracing::camera::Camera;
 use raytracing::color::color;
 use raytracing::lights::PointLight;
 use raytracing::materials::Phong;
-use raytracing::matrix::{scaling, translation};
+use raytracing::matrix::{rotation, scaling, translation};
 use raytracing::pattern::stripe_pattern;
 use raytracing::shapes::{plane, sphere};
 use raytracing::tuple::{point, vector};
@@ -33,7 +33,14 @@ fn main() {
 
     let middle = sphere()
         .with_transform(translation(-0.5, 1, 0.5))
-        .with_material(Phong::new(color(0.1, 1, 0.5), 0.1, 0.7, 0.3, 200.0));
+        .with_material(Phong::new_pattern(
+            stripe_pattern(color(0.75, 0.75, 0.5), color(0.1, 0.5, 1))
+                .with_transform(scaling(0.1, 0.1, 0.1) * rotation(42.0, vector(4, 2, 3))),
+            0.1,
+            0.7,
+            0.3,
+            200.0,
+        ));
     world.add_shape(middle);
 
     let right = sphere()

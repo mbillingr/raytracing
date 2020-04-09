@@ -47,6 +47,7 @@ impl World {
         self.lights.iter().fold(BLACK, |color, light| {
             color
                 + comps.obj.material().lighting(
+                    &comps.obj,
                     &light,
                     comps.point,
                     comps.eyev,

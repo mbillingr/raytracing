@@ -22,9 +22,9 @@
       (material (color 1 1 1)
                 0.1 0.9 0.9 200))
 
-    (define (lighting material light point eyev normalv in-shadow?)
+    (define (lighting material object light point eyev normalv in-shadow?)
       (let* ((matcol (material-color material))
-             (col (if (color? matcol) matcol (matcol 'at point)))
+             (col (if (color? matcol) matcol (object 'pattern-at matcol point)))
              (effective-color (color* col (light 'intensity)))
              (lightv (normalize (tuple-sub (light 'position)
                                            point)))

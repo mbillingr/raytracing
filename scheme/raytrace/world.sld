@@ -44,6 +44,7 @@
               (color 0 0 0)
               (begin
                 (color+ (lighting ((comp-object comps) 'material)
+                                  (comp-object comps)
                                   (car l)
                                   (comp-point comps)
                                   (comp-eyev comps)

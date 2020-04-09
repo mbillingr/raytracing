@@ -32,11 +32,15 @@
           (tuple-set-w! world-n 0)
           (normalize world-n)))
 
+      (define (pattern-at pattern world-p)
+        (pattern 'at (m4* inv-transform world-p)))
+
       (define (dispatch m . args)
         (cond ((eq? m 'intersect) (intersect (car args)))
               ((eq? m 'normal-at) (normal-at (car args)))
               ((eq? m 'transform) transform)
               ((eq? m 'material) material)
+              ((eq? m 'pattern-at) (pattern-at (car args) (cadr args)))
               ((eq? m 'set-transform!)
                (set! transform (car args))
                (set! inv-transform (m4-inverse (car args))))

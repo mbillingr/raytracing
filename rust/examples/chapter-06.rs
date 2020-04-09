@@ -12,10 +12,10 @@ fn main() {
     let mut canvas = Canvas::new(width, height);
     canvas.life_view("Canvas view");
 
-    let mut sphere = sphere();
-    sphere.set_material(Phong::new(color(0.2, 0.8, 0.9), 0.1, 0.9, 0.9, 20.0));
+    let mut obj = sphere();
+    obj.set_material(Phong::new(color(0.2, 0.8, 0.9), 0.1, 0.9, 0.9, 20.0));
 
-    let scene = vec![sphere];
+    let scene = vec![obj];
     let light = PointLight::new(point(1, 9, -10), color(1, 1, 1));
 
     let eye = point(0, 0, -10);
@@ -37,7 +37,9 @@ fn main() {
                 let p = ray.position(t);
                 let eyev = -ray.direction();
                 let normalv = obj.normal_at(p);
-                let color = obj.material().lighting(&light, p, eyev, normalv, false);
+                let color = obj
+                    .material()
+                    .lighting(&sphere(), &light, p, eyev, normalv, false);
                 canvas.set_pixel(i, j, color);
             }
         }

@@ -1,6 +1,7 @@
 use crate::color::{color, Color, BLACK};
 use crate::lights::PointLight;
 use crate::pattern::Pattern;
+use crate::shapes::Shape;
 use crate::tuple::{Point, Vector};
 
 #[derive(Debug, Clone)]
@@ -102,6 +103,7 @@ impl Phong {
 
     pub fn lighting(
         &self,
+        obj: &Shape,
         light: &PointLight,
         point: Point,
         eyev: Vector,
@@ -110,7 +112,7 @@ impl Phong {
     ) -> Color {
         let color = match &self.color {
             SurfaceColor::Flat(c) => *c,
-            SurfaceColor::Pattern(p) => p.at(point),
+            SurfaceColor::Pattern(p) => obj.pattern_at(p, point),
         };
         let effective_color = color * light.intensity();
         let ambient = effective_color * self.ambient();
@@ -151,6 +153,7 @@ mod tests {
     use crate::approx_eq::ApproximateEq;
     use crate::color::color;
     use crate::lights::PointLight;
+    use crate::shapes::sphere;
     use crate::tuple::{point, vector};
 
     /// The default material
@@ -172,7 +175,7 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, -10), color(1, 1, 1));
-        let result = m.lighting(&light, pos, eyev, normalv, false);
+        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, false);
         assert_almost_eq!(result, color(1.9, 1.9, 1.9));
     }
 
@@ -188,7 +191,7 @@ mod tests {
         );
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, -10), color(1, 1, 1));
-        let result = m.lighting(&light, pos, eyev, normalv, false);
+        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, false);
         assert_almost_eq!(result, color(1.0, 1.0, 1.0));
     }
 
@@ -200,7 +203,7 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 10, -10), color(1, 1, 1));
-        let result = m.lighting(&light, pos, eyev, normalv, false);
+        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, false);
         assert_almost_eq!(result, color(0.7364, 0.7364, 0.7364));
     }
 
@@ -216,7 +219,7 @@ mod tests {
         );
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 10, -10), color(1, 1, 1));
-        let result = m.lighting(&light, pos, eyev, normalv, false);
+        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, false);
         assert_almost_eq!(result, color(1.6364, 1.6364, 1.6364));
     }
 
@@ -228,7 +231,7 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, 10), color(1, 1, 1));
-        let result = m.lighting(&light, pos, eyev, normalv, false);
+        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, false);
         assert_almost_eq!(result, color(0.1, 0.1, 0.1));
     }
 
@@ -240,7 +243,7 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, -10), color(1, 1, 1));
-        let result = m.lighting(&light, pos, eyev, normalv, true);
+        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, true);
         assert_almost_eq!(result, color(0.1, 0.1, 0.1));
     }
 }

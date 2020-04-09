@@ -41,6 +41,10 @@ pub fn rotation_z(phi: impl Into<f64>) -> Matrix {
     Matrix::Identity.rotate(phi.into(), [0.0, 0.0, 1.0])
 }
 
+pub fn rotation(phi: impl Into<f64>, axis: Vector) -> Matrix {
+    Matrix::Identity.rotate(phi.into(), [axis.x(), axis.y(), axis.z()])
+}
+
 pub fn view_transform(from: Point, to: Point, up: Vector) -> Matrix {
     Matrix::view(from, to, up)
 }

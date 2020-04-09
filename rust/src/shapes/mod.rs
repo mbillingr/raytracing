@@ -5,8 +5,10 @@ pub use plane::plane;
 pub use sphere::sphere;
 
 use crate::approx_eq::ApproximateEq;
+use crate::color::Color;
 use crate::materials::Phong;
 use crate::matrix::Matrix;
+use crate::pattern::Pattern;
 use crate::ray::{Intersection, Ray};
 use crate::tuple::{Point, Vector};
 use std::any::Any;
@@ -46,6 +48,10 @@ impl Shape {
         let obj_normal = self.geometry.normal_at(obj_point);
         let world_normal = self.inv_transform().transpose() * obj_normal;
         Vector::new(world_normal.x(), world_normal.y(), world_normal.z()).normalized()
+    }
+
+    pub fn pattern_at(&self, pattern: &Pattern, world_point: Point) -> Color {
+        pattern.at(*self.inv_transform() * world_point)
     }
 
     pub fn with_material(self, material: Phong) -> Self {
