@@ -1,5 +1,8 @@
 use std::ops::{Add, Mul, Sub};
 
+pub const BLACK: Color = Color::new(0.0, 0.0, 0.0);
+pub const WHITE: Color = Color::new(1.0, 1.0, 1.0);
+
 pub fn color(r: impl Into<f64>, g: impl Into<f64>, b: impl Into<f64>) -> Color {
     Color::new(r.into(), g.into(), b.into())
 }
@@ -12,8 +15,6 @@ pub struct Color {
 }
 
 impl Color {
-    pub const BLACK: Color = Color::new(0.0, 0.0, 0.0);
-
     pub const fn new(red: f64, green: f64, blue: f64) -> Self {
         Color { red, green, blue }
     }

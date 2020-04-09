@@ -10,6 +10,7 @@ pub mod color;
 pub mod lights;
 pub mod materials;
 pub mod matrix;
+pub mod pattern;
 pub mod shapes;
 pub mod tuple;
 pub mod world;

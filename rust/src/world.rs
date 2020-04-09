@@ -1,4 +1,4 @@
-use crate::color::{color, Color};
+use crate::color::{color, Color, BLACK};
 use crate::lights::PointLight;
 use crate::materials::Phong;
 use crate::matrix::scaling;
@@ -44,7 +44,7 @@ impl World {
     }
 
     pub fn shade_hit(&self, comps: IntersectionState) -> Color {
-        self.lights.iter().fold(Color::BLACK, |color, light| {
+        self.lights.iter().fold(BLACK, |color, light| {
             color
                 + comps.obj.material().lighting(
                     &light,
@@ -82,7 +82,7 @@ mod tests {
     use crate::approx_eq::ApproximateEq;
     use crate::approx_eq::FindSimilar;
     use crate::color::color;
-    use crate::materials::Phong;
+    use crate::materials::{Phong, SurfaceColor};
     use crate::matrix::{scaling, translation};
     use crate::shapes::sphere;
     use crate::tuple::{point, vector};
@@ -180,8 +180,8 @@ mod tests {
         w.objects[0].set_material(m0);
         let m1 = w.objects[1].material().clone().with_ambient(1.0);
         w.objects[1].set_material(m1.clone());
-        let c = w.color_at(&r);
-        assert_eq!(c, Some(m1.color()));
+        let c = w.color_at(&r).unwrap();
+        assert_almost_eq!(SurfaceColor::Flat(c), m1.color());
     }
 
     /// There is no shadow if nothing is collinear with point and light

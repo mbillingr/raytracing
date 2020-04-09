@@ -1,6 +1,6 @@
 use crate::color::Color;
 use crate::lights::PointLight;
-use crate::materials::Phong;
+use crate::materials::{Phong, SurfaceColor};
 use crate::matrix::Matrix;
 use crate::shapes::Shape;
 use crate::tuple::{Point, Vector};
@@ -52,9 +52,20 @@ impl ApproximateEq for Matrix {
     }
 }
 
+impl ApproximateEq for SurfaceColor {
+    fn approx_eq(&self, other: &Self) -> bool {
+        use SurfaceColor::*;
+        match (self, other) {
+            (Flat(a), Flat(b)) => a.approx_eq(b),
+            (Pattern(a), Pattern(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
 impl ApproximateEq for Phong {
     fn approx_eq(&self, other: &Self) -> bool {
-        self.color().approx_eq(&other.color())
+        self.color().approx_eq(other.color())
             && self.ambient().approx_eq(&other.ambient())
             && self.diffuse().approx_eq(&other.diffuse())
             && self.specular().approx_eq(&other.specular())

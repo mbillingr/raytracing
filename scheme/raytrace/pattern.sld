@@ -1,0 +1,16 @@
+(define-library (raytrace pattern)
+  (export stripe-pattern)
+  (import (scheme base) (scheme write)
+          (raytrace tuple))
+  (begin
+    (define (stripe-pattern a b)
+      (define (func point)
+        (if (= 0 (remainder (floor (tuple-x point)) 2))
+            a
+            b))
+      (define (dispatch m . args)
+        (cond ((eq? m 'at) (func (car args)))
+              ((eq? m 'a) a)
+              ((eq? m 'b) b)
+              (else (error "unknown method (plane-geometry m ...)" m))))
+      dispatch)))

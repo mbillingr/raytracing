@@ -1,10 +1,17 @@
-use crate::color::{color, Color};
+use crate::color::{color, Color, BLACK};
 use crate::lights::PointLight;
+use crate::pattern::Pattern;
 use crate::tuple::{Point, Vector};
 
 #[derive(Debug, Clone)]
+pub enum SurfaceColor {
+    Flat(Color),
+    Pattern(Pattern),
+}
+
+#[derive(Debug, Clone)]
 pub struct Phong {
-    color: Color,
+    color: SurfaceColor,
     ambient: f64,
     diffuse: f64,
     specular: f64,
@@ -20,7 +27,22 @@ impl Default for Phong {
 impl Phong {
     pub fn new(color: Color, ambient: f64, diffuse: f64, specular: f64, shininess: f64) -> Self {
         Phong {
-            color,
+            color: SurfaceColor::Flat(color),
+            ambient,
+            diffuse,
+            specular,
+            shininess,
+        }
+    }
+    pub fn new_pattern(
+        pattern: Pattern,
+        ambient: f64,
+        diffuse: f64,
+        specular: f64,
+        shininess: f64,
+    ) -> Self {
+        Phong {
+            color: SurfaceColor::Pattern(pattern),
             ambient,
             diffuse,
             specular,
@@ -29,7 +51,17 @@ impl Phong {
     }
 
     pub fn with_color(self, color: Color) -> Self {
-        Phong { color, ..self }
+        Phong {
+            color: SurfaceColor::Flat(color),
+            ..self
+        }
+    }
+
+    pub fn with_pattern(self, pattern: Pattern) -> Self {
+        Phong {
+            color: SurfaceColor::Pattern(pattern),
+            ..self
+        }
     }
 
     pub fn with_ambient(self, ambient: f64) -> Self {
@@ -48,8 +80,8 @@ impl Phong {
         Phong { shininess, ..self }
     }
 
-    pub fn color(&self) -> Color {
-        self.color
+    pub fn color(&self) -> &SurfaceColor {
+        &self.color
     }
 
     pub fn ambient(&self) -> f64 {
@@ -76,7 +108,11 @@ impl Phong {
         normalv: Vector,
         in_shadow: bool,
     ) -> Color {
-        let effective_color = self.color() * light.intensity();
+        let color = match &self.color {
+            SurfaceColor::Flat(c) => *c,
+            SurfaceColor::Pattern(p) => p.at(point),
+        };
+        let effective_color = color * light.intensity();
         let ambient = effective_color * self.ambient();
 
         if in_shadow {
@@ -90,8 +126,8 @@ impl Phong {
         let specular;
 
         if light_dot_normal <= 0.0 {
-            diffuse = Color::BLACK;
-            specular = Color::BLACK;
+            diffuse = BLACK;
+            specular = BLACK;
         } else {
             diffuse = effective_color * (self.diffuse() * light_dot_normal);
 
@@ -99,7 +135,7 @@ impl Phong {
             let reflect_dot_eye = reflectv.dot(&eyev);
 
             specular = if reflect_dot_eye <= 0.0 {
-                Color::BLACK
+                BLACK
             } else {
                 light.intensity() * (self.specular() * reflect_dot_eye.powf(self.shininess()))
             };
@@ -121,7 +157,7 @@ mod tests {
     #[test]
     fn point_attrs() {
         let m = Phong::default();
-        assert_eq!(m.color(), color(1, 1, 1));
+        assert_almost_eq!(m.color(), &SurfaceColor::Flat(color(1, 1, 1)));
         assert_eq!(m.ambient(), 0.1);
         assert_eq!(m.diffuse(), 0.9);
         assert_eq!(m.specular(), 0.9);
