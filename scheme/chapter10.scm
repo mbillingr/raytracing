@@ -21,7 +21,7 @@
 
 (define middle (sphere))
 (middle 'set-transform! (translation -0.5 1 0.5))
-(middle 'set-material! (material (stripe-pattern (color 0.5 0.5 0.5) (color 0.1 1 0.5))
+(middle 'set-material! (material (gradient-pattern (color 0.9 0 0.5) (color 0.1 1 0.5))
                                 0.1 0.7 0.3 200.0))
 
 (define right (sphere))

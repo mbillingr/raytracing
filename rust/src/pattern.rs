@@ -7,6 +7,30 @@ pub fn stripe_pattern(a: Color, b: Color) -> Pattern {
     Pattern::new(move |p| if p.x().floor() % 2.0 == 0.0 { a } else { b })
 }
 
+pub fn gradient_pattern(a: Color, b: Color) -> Pattern {
+    Pattern::new(move |p| a + (b - a) * (p.x() - p.x().floor()))
+}
+
+pub fn ring_pattern(a: Color, b: Color) -> Pattern {
+    Pattern::new(move |p| {
+        if (p.x() * p.x() + p.z() * p.z()).sqrt().floor() % 2.0 == 0.0 {
+            a
+        } else {
+            b
+        }
+    })
+}
+
+pub fn checkers_pattern(a: Color, b: Color) -> Pattern {
+    Pattern::new(move |p| {
+        if (p.x().floor() + p.y().floor() + p.z().floor()) % 2.0 == 0.0 {
+            a
+        } else {
+            b
+        }
+    })
+}
+
 #[derive(Clone)]
 pub struct Pattern {
     func: Rc<dyn Fn(Point) -> Color>,
@@ -149,5 +173,51 @@ mod tests {
         let c2 = m.lighting(&sphere(), &light, point(1.1, 0, 0), eyev, normalv, false);
         assert_almost_eq!(c1, WHITE);
         assert_almost_eq!(c2, BLACK);
+    }
+
+    /// A gradient linearly interpolates between colors
+    #[test]
+    fn gradient() {
+        let pattern = gradient_pattern(WHITE, BLACK);
+        assert_almost_eq!(pattern.at(point(0.25, 0, 0)), color(0.75, 0.75, 0.75));
+        assert_almost_eq!(pattern.at(point(0.5, 0, 0)), color(0.5, 0.5, 0.5));
+        assert_almost_eq!(pattern.at(point(0.75, 0, 0)), color(0.25, 0.25, 0.25));
+    }
+
+    /// A ring should extend in both x and z
+    #[test]
+    fn ring() {
+        let pattern = ring_pattern(WHITE, BLACK);
+        assert_almost_eq!(pattern.at(point(0, 0, 0)), WHITE);
+        assert_almost_eq!(pattern.at(point(1, 0, 0)), BLACK);
+        assert_almost_eq!(pattern.at(point(0, 0, 1)), BLACK);
+        assert_almost_eq!(pattern.at(point(0.708, 0, 0.708)), BLACK);
+    }
+
+    /// Checkers should repeat in x
+    #[test]
+    fn checkers_x() {
+        let pattern = checkers_pattern(WHITE, BLACK);
+        assert_almost_eq!(pattern.at(point(0.00, 0, 0)), WHITE);
+        assert_almost_eq!(pattern.at(point(0.99, 0, 0)), WHITE);
+        assert_almost_eq!(pattern.at(point(1.01, 0, 0)), BLACK);
+    }
+
+    /// Checkers should repeat in y
+    #[test]
+    fn checkers_y() {
+        let pattern = checkers_pattern(WHITE, BLACK);
+        assert_almost_eq!(pattern.at(point(0, 0.00, 0)), WHITE);
+        assert_almost_eq!(pattern.at(point(0, 0.99, 0)), WHITE);
+        assert_almost_eq!(pattern.at(point(0, 1.01, 0)), BLACK);
+    }
+
+    /// Checkers should repeat in z
+    #[test]
+    fn checkers_z() {
+        let pattern = checkers_pattern(WHITE, BLACK);
+        assert_almost_eq!(pattern.at(point(0, 0, 0.00)), WHITE);
+        assert_almost_eq!(pattern.at(point(0, 0, 0.99)), WHITE);
+        assert_almost_eq!(pattern.at(point(0, 0, 1.01)), BLACK);
     }
 }

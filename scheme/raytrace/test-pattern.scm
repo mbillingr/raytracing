@@ -83,3 +83,37 @@
         (c2 <- (lighting m s light (point 1.1 0 0) eyev normalv #f)))
   (then (c1 == WHITE)
         (c2 == BLACK)))
+
+;; more patterns
+;; ===========================================================================
+
+(test "A gradient linearly interpolates between colors"
+  (given (pattern <- (gradient-pattern WHITE BLACK)))
+  (then ((pattern 'at (point 0.25 0 0)) == (color 0.75 0.75 0.75))
+        ((pattern 'at (point 0.5 0 0)) == (color 0.5 0.5 0.5))
+        ((pattern 'at (point 0.75 0 0)) == (color 0.25 0.25 0.25))))
+
+(test "A ring should extend in both x and z"
+  (given (pattern <- (ring-pattern WHITE BLACK)))
+  (then ((pattern 'at (point 0 0 0)) == WHITE)
+        ((pattern 'at (point 1 0 0)) == BLACK)
+        ((pattern 'at (point 0 0 1)) == BLACK)
+        ((pattern 'at (point 0.708 0 0.708)) == BLACK)))
+
+(test "Checkers should repeat in x"
+  (given (pattern <- (checkers-pattern WHITE BLACK)))
+  (then ((pattern 'at (point 0 0 0)) == WHITE)
+        ((pattern 'at (point 0.99 0 0)) == WHITE)
+        ((pattern 'at (point 1.01 0 0)) == BLACK)))
+
+(test "Checkers should repeat in y"
+  (given (pattern <- (checkers-pattern WHITE BLACK)))
+  (then ((pattern 'at (point 0 0 0)) == WHITE)
+        ((pattern 'at (point 0 0.99 0)) == WHITE)
+        ((pattern 'at (point 0 1.01 0)) == BLACK)))
+
+(test "Checkers should repeat in z"
+  (given (pattern <- (checkers-pattern WHITE BLACK)))
+  (then ((pattern 'at (point 0 0 0)) == WHITE)
+        ((pattern 'at (point 0 0 0.99)) == WHITE)
+        ((pattern 'at (point 0 0 1.01)) == BLACK)))

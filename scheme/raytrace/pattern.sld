@@ -1,5 +1,7 @@
 (define-library (raytrace pattern)
-  (export make-pattern stripe-pattern)
+  (export make-pattern
+          checkers-pattern gradient-pattern
+          ring-pattern stripe-pattern)
   (import (scheme base) (scheme write)
           (raytrace tuple)
           (raytrace transformations)
@@ -21,6 +23,36 @@
         (lambda (point)
           (if (= 0 (remainder
                      (floor (tuple-x point))
+                     2))
+              a
+              b))))
+
+    (define (gradient-pattern a b)
+      (make-pattern
+        (lambda (point)
+          (color+ a
+                  (color-scale
+                    (color- b a)
+                    (- (tuple-x point)
+                       (floor (tuple-x point))))))))
+
+    (define (ring-pattern a b)
+      (make-pattern
+        (lambda (p)
+          (if (= 0 (remainder
+                     (floor
+                       (magnitude (tuple-sub p (point 0 0 0))))
+                     2))
+              a
+              b))))
+
+    (define (checkers-pattern a b)
+      (make-pattern
+        (lambda (point)
+          (if (= 0 (remainder
+                     (+ (floor (tuple-x point))
+                        (floor (tuple-y point))
+                        (floor (tuple-z point)))
                      2))
               a
               b))))))
