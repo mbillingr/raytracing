@@ -56,11 +56,12 @@ fn main() {
         .with_material(Phong::new(color(1, 0.8, 0.1), 0.1, 0.7, 0.3, 200.0, 0.0));
     world.add_shape(left);
 
-    let camera = Camera::new(900, 450, PI / 3.0).with_view_transform(
+    let mut camera = Camera::new(900, 450, PI / 3.0).with_view_transform(
         point(0, 1.5, -5),
         point(0, 1, 0),
         vector(0, 1, 0),
     );
+    camera.set_multisampling(8);
 
     let image = camera.render_live(&world, "Chapter 8");
 

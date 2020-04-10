@@ -4,7 +4,7 @@ use crate::ray::Ray;
 use crate::tuple::{point, Point, Vector};
 use crate::world::World;
 use rand::seq::SliceRandom;
-use rand::thread_rng;
+use rand::{thread_rng, Rng};
 
 #[derive(Debug, Clone)]
 pub struct Camera {
@@ -18,6 +18,8 @@ pub struct Camera {
     pixel_size: f64,
     half_width: f64,
     half_height: f64,
+
+    multisampling: u16,
 }
 
 impl Camera {
@@ -45,6 +47,7 @@ impl Camera {
             pixel_size,
             half_width,
             half_height,
+            multisampling: 1,
         }
     }
 
@@ -82,13 +85,25 @@ impl Camera {
         self
     }
 
+    pub fn set_multisampling(&mut self, n: u16) {
+        self.multisampling = n;
+    }
+
     pub fn pixel_size(&self) -> f64 {
         self.pixel_size
     }
 
-    pub fn ray_for_pixel(&self, px: u32, py: u32) -> Ray {
-        let x_offset = (px as f64 + 0.5) * self.pixel_size;
-        let y_offset = (py as f64 + 0.5) * self.pixel_size;
+    pub fn ray_for_pixel(&self, px: u32, py: u32, randomize: bool) -> Ray {
+        let x_offset;
+        let y_offset;
+        if randomize {
+            let mut rnd = thread_rng();
+            x_offset = (px as f64 + rnd.gen::<f64>()) * self.pixel_size;
+            y_offset = (py as f64 + rnd.gen::<f64>()) * self.pixel_size;
+        } else {
+            x_offset = (px as f64 + 0.5) * self.pixel_size;
+            y_offset = (py as f64 + 0.5) * self.pixel_size;
+        }
         let world_x = self.half_width - x_offset;
         let world_y = self.half_height - y_offset;
         let pixel = self.inv_transform * point(world_x, world_y, -1.0);
@@ -116,10 +131,12 @@ impl Camera {
         coordinates.shuffle(&mut thread_rng());
         for (x, y, color) in coordinates
             .into_iter()
-            .map(|(x, y)| (x, y, self.ray_for_pixel(x, y)))
+            .flat_map(|(x, y)| {
+                (0..self.multisampling).map(move |n| (x, y, self.ray_for_pixel(x, y, n > 0)))
+            })
             .filter_map(|(x, y, ray)| world.trace(&ray).map(|c| (x, y, c)))
         {
-            canvas.set_pixel(x, y, color)
+            canvas.add_to_pixel(x, y, color * (1.0 / self.multisampling as f64))
         }
     }
 }
@@ -165,7 +182,7 @@ mod tests {
     #[test]
     fn ray_center() {
         let c = Camera::new(201, 101, PI / 2.0);
-        let r = c.ray_for_pixel(100, 50);
+        let r = c.ray_for_pixel(100, 50, false);
         assert_almost_eq!(r.origin(), point(0, 0, 0));
         assert_almost_eq!(r.direction(), vector(0, 0, -1));
     }
@@ -174,7 +191,7 @@ mod tests {
     #[test]
     fn ray_corner() {
         let c = Camera::new(201, 101, PI / 2.0);
-        let r = c.ray_for_pixel(0, 0);
+        let r = c.ray_for_pixel(0, 0, false);
         assert_almost_eq!(r.origin(), point(0, 0, 0));
         assert_almost_eq!(r.direction(), vector(0.66519, 0.33259, -0.66851));
     }
@@ -184,7 +201,7 @@ mod tests {
     fn ray_transformed() {
         let mut c = Camera::new(201, 101, PI / 2.0);
         c.set_transform(rotation_y(PI / 4.0) * translation(0, -2, 5));
-        let r = c.ray_for_pixel(100, 50);
+        let r = c.ray_for_pixel(100, 50, false);
         assert_almost_eq!(r.origin(), point(0, 2, -5));
         assert_almost_eq!(r.direction(), vector(FRAC_1_SQRT_2, 0, -FRAC_1_SQRT_2));
     }

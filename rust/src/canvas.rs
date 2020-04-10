@@ -58,6 +58,14 @@ impl Canvas {
         self.send_message(Message::SetPixel(x as i32, y as i32, r, g, b))
     }
 
+    pub fn add_to_pixel(&mut self, x: u32, y: u32, c: Color) {
+        let pix = &mut self.rows_mut().skip(y as usize).next().unwrap()[x as usize];
+        *pix = *pix + c;
+
+        let (r, g, b) = pix.to_u8();
+        self.send_message(Message::SetPixel(x as i32, y as i32, r, g, b))
+    }
+
     pub fn get_pixel(&self, x: u32, y: u32) -> Color {
         self.rows().skip(y as usize).next().unwrap()[x as usize]
     }
