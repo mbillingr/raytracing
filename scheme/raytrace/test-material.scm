@@ -51,4 +51,8 @@
            (normalv <- (vec 0 0 -1))
            (light <- (point-light (point 0 0 -10) (color 1 1 1))))
     (when (result <- (lighting m (sphere) light pos eyev normalv #t)))
-    (then (result == (color 0.1 0.1 0.1)))))
+    (then (result == (color 0.1 0.1 0.1))))
+
+  (test "Reflectivity for the default material"
+    (given (m <- (default-material)))
+    (then ((material-reflective m) == 0.0))))

@@ -17,22 +17,31 @@ pub struct Phong {
     diffuse: f64,
     specular: f64,
     shininess: f64,
+    reflective: f64,
 }
 
 impl Default for Phong {
     fn default() -> Self {
-        Self::new(color(1, 1, 1), 0.1, 0.9, 0.9, 200.0)
+        Self::new(color(1, 1, 1), 0.1, 0.9, 0.9, 200.0, 0.0)
     }
 }
 
 impl Phong {
-    pub fn new(color: Color, ambient: f64, diffuse: f64, specular: f64, shininess: f64) -> Self {
+    pub fn new(
+        color: Color,
+        ambient: f64,
+        diffuse: f64,
+        specular: f64,
+        shininess: f64,
+        reflective: f64,
+    ) -> Self {
         Phong {
             color: SurfaceColor::Flat(color),
             ambient,
             diffuse,
             specular,
             shininess,
+            reflective,
         }
     }
     pub fn new_pattern(
@@ -41,6 +50,7 @@ impl Phong {
         diffuse: f64,
         specular: f64,
         shininess: f64,
+        reflective: f64,
     ) -> Self {
         Phong {
             color: SurfaceColor::Pattern(pattern),
@@ -48,6 +58,7 @@ impl Phong {
             diffuse,
             specular,
             shininess,
+            reflective,
         }
     }
 
@@ -81,6 +92,10 @@ impl Phong {
         Phong { shininess, ..self }
     }
 
+    pub fn with_reflective(self, reflective: f64) -> Self {
+        Phong { reflective, ..self }
+    }
+
     pub fn color(&self) -> &SurfaceColor {
         &self.color
     }
@@ -89,16 +104,40 @@ impl Phong {
         self.ambient
     }
 
+    pub fn set_ambient(&mut self, ambient: f64) {
+        self.ambient = ambient
+    }
+
     pub fn diffuse(&self) -> f64 {
         self.diffuse
+    }
+
+    pub fn set_diffuse(&mut self, diffuse: f64) {
+        self.diffuse = diffuse
     }
 
     pub fn specular(&self) -> f64 {
         self.specular
     }
 
+    pub fn set_specular(&mut self, specular: f64) {
+        self.specular = specular
+    }
+
     pub fn shininess(&self) -> f64 {
         self.shininess
+    }
+
+    pub fn set_shininess(&mut self, shininess: f64) {
+        self.shininess = shininess
+    }
+
+    pub fn reflective(&self) -> f64 {
+        self.reflective
+    }
+
+    pub fn set_reflective(&mut self, reflective: f64) {
+        self.reflective = reflective
     }
 
     pub fn lighting(
@@ -165,6 +204,7 @@ mod tests {
         assert_eq!(m.diffuse(), 0.9);
         assert_eq!(m.specular(), 0.9);
         assert_eq!(m.shininess(), 200.0);
+        assert_eq!(m.reflective(), 0.0);
     }
 
     /// Lighting with the eye between light and surface

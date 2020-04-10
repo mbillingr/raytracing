@@ -1,4 +1,4 @@
-(import (scheme base)
+(import (scheme base) (scheme write)
         (raytrace testing)
         (raytrace world)
         (raytrace tuple)
@@ -153,3 +153,71 @@
          (comps <- (prepare-computations i r))
          (c <- (w 'shade-hit comps)))
   (then (c == (color 0.1 0.1 0.1))))
+
+(test "Precomputing the reflection vector"
+  (given (shape <- (plane))
+         (r <- (ray (point 0 1 -1) (vec 0 (- SQRT2/2) SQRT2/2)))
+         (i <- (intersection SQRT2 shape)))
+  (when (comp <- (prepare-computations i r)))
+  (then ((comp-reflectv comp) == (vec 0 SQRT2/2 SQRT2/2))))
+
+(test "The reflected color of a nonreflective material"
+  (given (w <- (default-world))
+         (r <- (ray (point 0 0 0) (vec 0 0 1)))
+         (shape <- (cadr (w 'objects))))
+  (when (material-set-ambient! (shape 'material) 1)
+        (i <- (intersection 1 shape))
+        (comps <- (prepare-computations i r))
+        (c <- (w 'reflected-color comps 1)))
+  (then (c == (color 0 0 0))))
+
+(test "The reflected color for a reflective material"
+  (given (w <- (default-world))
+         (shape <- (plane))
+         (r <- (ray (point 0 0 -3) (vec 0 (- SQRT2/2) SQRT2/2))))
+  (with (material-set-reflective! (shape 'material) 0.5)
+        (shape 'set-transform! (translation 0 -1 0))
+        (w 'add-object! shape)
+        (i <- (intersection SQRT2 shape))
+        (comps <- (prepare-computations i r))
+        (c <- (w 'reflected-color comps 1)))
+  (then (c == (color 0.19033 0.23792 0.14274))))
+
+(test "(shade_hit) with a reflective material"
+  (given (w <- (default-world))
+         (shape <- (plane))
+         (r <- (ray (point 0 0 -3) (vec 0 (- SQRT2/2) SQRT2/2))))
+  (with (material-set-reflective! (shape 'material) 0.5)
+        (shape 'set-transform! (translation 0 -1 0))
+        (w 'add-object! shape)
+        (i <- (intersection SQRT2 shape))
+        (comps <- (prepare-computations i r))
+        (c <- (w 'shade-hit comps)))
+  (then (c == (color 0.87676 0.92434 0.82917))))
+
+(test "The reflected color at maximum recursive depth"
+  (given (w <- (default-world))
+         (shape <- (plane))
+         (r <- (ray (point 0 0 -3) (vec 0 (- SQRT2/2) SQRT2/2))))
+  (with (material-set-reflective! (shape 'material) 0.5)
+        (shape 'set-transform! (translation 0 -1 0))
+        (w 'add-object! shape)
+        (i <- (intersection SQRT2 shape))
+        (comps <- (prepare-computations i r))
+        (c <- (w 'reflected-color comps 0)))
+  (then (c == (color 0 0 0))))
+
+(test "(color-at) with mutually reflective surfaces"
+  (given (w <- (empty-world))
+         (lower <- (plane))
+         (upper <- (plane))
+         (r <- (ray (point 0 0 0) (vec 0 1 0))))
+  (when (w 'add-light! (point-light (point 0 0 0) (color 1 1 1)))
+        (w 'add-object! lower)
+        (w 'add-object! upper)
+        (material-set-reflective! (lower 'material) 1)
+        (lower 'set-transform! (translation 0 -1 0))
+        (material-set-reflective! (upper 'material) 1)
+        (upper 'set-transform! (translation 0 1 0))
+        (w 'color-at r))  ; just testing if this terminates
+  (then))

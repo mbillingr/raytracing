@@ -1,22 +1,28 @@
 (define-library (raytrace material)
-  (export default-material material material? material-color
+  (export default-material material material?  make-material
+          material-color material-set-color!
           material-ambient material-set-ambient!
           material-diffuse material-set-diffuse!
           material-specular material-set-specular!
           material-shininess material-set-shininess!
+          material-reflective material-set-reflective!
           lighting)
   (import (scheme base)
           (raytrace tuple)
           (raytrace lights))
   (begin
     (define-record-type <material>
-      (material color ambient diffuse specular shininess)
+      (make-material color ambient diffuse specular shininess reflective)
       material?
       (color material-color material-set-color!)
       (ambient material-ambient material-set-ambient!)
       (diffuse material-diffuse material-set-diffuse!)
       (specular material-specular material-set-specular!)
-      (shininess material-shininess material-set-shininess!))
+      (shininess material-shininess material-set-shininess!)
+      (reflective material-reflective material-set-reflective!))
+
+    (define (material c a d s l)
+      (make-material c a d s l 0))
 
     (define (default-material)
       (material (color 1 1 1)

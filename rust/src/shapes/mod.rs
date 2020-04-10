@@ -70,6 +70,10 @@ impl Shape {
         &self.material
     }
 
+    pub fn material_mut(&mut self) -> &mut Phong {
+        &mut self.material
+    }
+
     pub fn set_material(&mut self, material: Phong) {
         self.material = material;
     }

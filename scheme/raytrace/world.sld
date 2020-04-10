@@ -2,7 +2,7 @@
   (export empty-world default-world make-world
           prepare-computations
           comp-t comp-object comp-point comp-over-point comp-eyev
-          comp-normalv comp-inside?)
+          comp-normalv comp-inside? comp-reflectv)
   (import (scheme base)
           (scheme inexact)
           (scheme write)
@@ -31,6 +31,7 @@
           (list (point-light (point -10 10 -10) (color 1 1 1))))))
 
     (define (make-world objects lights)
+      (define MAX-REFLECTION-DEPTH 3)
       (define (intersect ray)
         (let loop ((objs objects))
           (if (null? objs)
@@ -38,25 +39,28 @@
               (merge-sorted (loop (cdr objs))
                             ((car objs) 'intersect ray)))))
 
-      (define (shade-hit comps)
+      (define (shade-hit comps remaining-bounces)
         (let loop ((l lights))
           (if (null? l)
               (color 0 0 0)
               (begin
-                (color+ (lighting ((comp-object comps) 'material)
-                                  (comp-object comps)
-                                  (car l)
-                                  (comp-point comps)
-                                  (comp-eyev comps)
-                                  (comp-normalv comps)
-                                  (is-shadowed (car l) (comp-over-point comps)))
-                        (loop (cdr l)))))))
+                (color+
+                  (color+
+                    (lighting ((comp-object comps) 'material)
+                              (comp-object comps)
+                              (car l)
+                              (comp-over-point comps)
+                              (comp-eyev comps)
+                              (comp-normalv comps)
+                              (is-shadowed (car l) (comp-over-point comps)))
+                    (reflected-color comps remaining-bounces))
+                  (loop (cdr l)))))))
 
-      (define (color-at ray)
+      (define (color-at ray remaining-bounces)
         (let ((i (hit (intersect ray))))
           (if i
               (let ((comps (prepare-computations i ray)))
-                (shade-hit comps))
+                (shade-hit comps remaining-bounces))
               (color 0 0 0))))
 
       (define (is-shadowed light p)
@@ -65,11 +69,21 @@
         (and h (< (intersection-t h)
                   (magnitude direction))))
 
+      (define (reflected-color comps remaining-bounces)
+        (let ((r (material-reflective ((comp-object comps) 'material))))
+          (if (or (= r 0) (= remaining-bounces 0))
+              (color 0 0 0)
+              (color-scale
+                (color-at (ray (comp-over-point comps) (comp-reflectv comps))
+                          (- remaining-bounces 1))
+                r))))
+
       (define (dispatch m . args)
-        (cond ((eq? m 'color-at) (color-at (car args)))
+        (cond ((eq? m 'color-at) (color-at (car args) MAX-REFLECTION-DEPTH))
               ((eq? m 'intersect) (intersect (car args)))
               ((eq? m 'is-shadowed) (is-shadowed (car args) (cadr args)))
-              ((eq? m 'shade-hit) (shade-hit (car args)))
+              ((eq? m 'shade-hit) (shade-hit (car args) MAX-REFLECTION-DEPTH))
+              ((eq? m 'reflected-color) (reflected-color (car args) (cadr args)))
               ((eq? m 'lights) lights)
               ((eq? m 'objects) objects)
               ((eq? m 'add-object!) (set! objects (cons (car args) objects)))
@@ -101,11 +115,12 @@
              (normv (obj 'normal-at pos))
              (inside (< (dot normv eyev) 0))
              (normv (if inside (tuple-neg normv) normv))
-             (over-pos (tuple-add pos (tuple-scale normv EPSILON))))
-        (make-comp t obj inside pos over-pos eyev normv)))
+             (over-pos (tuple-add pos (tuple-scale normv EPSILON)))
+             (reflectv (reflect (ray-direction ray) normv)))
+        (make-comp t obj inside pos over-pos eyev normv reflectv)))
 
     (define-record-type <comp>
-      (make-comp t object inside? point over-point eyev normalv)
+      (make-comp t object inside? point over-point eyev normalv reflectv)
       comp?
       (t comp-t)
       (object comp-object)
@@ -113,4 +128,5 @@
       (point comp-point)
       (over-point comp-over-point)
       (eyev comp-eyev)
-      (normalv comp-normalv))))
+      (normalv comp-normalv)
+      (reflectv comp-reflectv))))

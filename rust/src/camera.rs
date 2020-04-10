@@ -117,7 +117,7 @@ impl Camera {
         for (x, y, color) in coordinates
             .into_iter()
             .map(|(x, y)| (x, y, self.ray_for_pixel(x, y)))
-            .filter_map(|(x, y, ray)| world.color_at(&ray).map(|c| (x, y, c)))
+            .filter_map(|(x, y, ray)| world.trace(&ray).map(|c| (x, y, c)))
         {
             canvas.set_pixel(x, y, color)
         }

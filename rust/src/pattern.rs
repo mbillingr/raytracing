@@ -1,3 +1,4 @@
+use crate::approx_eq::EPSILON;
 use crate::color::Color;
 use crate::matrix::Matrix;
 use crate::tuple::Point;
@@ -23,7 +24,9 @@ pub fn ring_pattern(a: Color, b: Color) -> Pattern {
 
 pub fn checkers_pattern(a: Color, b: Color) -> Pattern {
     Pattern::new(move |p| {
-        if (p.x().floor() + p.y().floor() + p.z().floor()) % 2.0 == 0.0 {
+        if ((p.x() + EPSILON).floor() + (p.y() + EPSILON).floor() + (p.z() + EPSILON).floor()) % 2.0
+            == 0.0
+        {
             a
         } else {
             b
@@ -165,7 +168,7 @@ mod tests {
     /// Lighting with a pattern applied
     #[test]
     fn stripe_light() {
-        let m = Phong::new_pattern(stripe_pattern(WHITE, BLACK), 1.0, 0.0, 0.0, 1.0);
+        let m = Phong::new_pattern(stripe_pattern(WHITE, BLACK), 1.0, 0.0, 0.0, 1.0, 0.0);
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, -10), WHITE);

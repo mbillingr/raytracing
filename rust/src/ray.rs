@@ -58,6 +58,7 @@ impl<'a> Intersection<'a> {
         let inside = normalv.dot(&eyev) < 0.0;
         let normalv = if inside { -normalv } else { normalv };
         let over_point = point + normalv * EPSILON;
+        let reflectv = ray.direction().reflect(&normalv);
         IntersectionState {
             t: self.t,
             obj: self.obj,
@@ -66,6 +67,7 @@ impl<'a> Intersection<'a> {
             over_point,
             eyev,
             normalv,
+            reflectv,
         }
     }
 }
@@ -91,6 +93,7 @@ pub struct IntersectionState<'a> {
     pub over_point: Point,
     pub eyev: Vector,
     pub normalv: Vector,
+    pub reflectv: Vector,
 }
 
 #[macro_export]
@@ -110,9 +113,10 @@ mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
     use crate::matrix::{rotation_x, scaling, translation};
-    use crate::shapes::sphere;
+    use crate::shapes::{plane, sphere};
     use crate::tuple::{point, vector};
     use std::f32::consts::PI;
+    use std::f64::consts::{FRAC_1_SQRT_2, SQRT_2};
 
     /// Creating and querying a ray
     #[test]
@@ -267,5 +271,15 @@ mod tests {
         let comps = i.prepare_computations(&r);
         assert!(comps.over_point.z() < -EPSILON / 2.0);
         assert!(comps.over_point.z() < comps.point.z());
+    }
+
+    /// Precomputing the reflection vector
+    #[test]
+    fn reflection_vector() {
+        let shape = plane();
+        let r = Ray::new(point(0, 1, -1), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
+        let i = Intersection::new(SQRT_2, &shape);
+        let comp = i.prepare_computations(&r);
+        assert_almost_eq!(comp.reflectv, vector(0, FRAC_1_SQRT_2, FRAC_1_SQRT_2));
     }
 }
