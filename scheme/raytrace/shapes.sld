@@ -1,5 +1,5 @@
 (define-library (raytrace shapes)
-  (export make-shape sphere plane)
+  (export make-shape sphere glass-sphere plane)
   (import (scheme base)
           (scheme inexact)
           (raytrace tuple)
@@ -15,6 +15,12 @@
 
     (define (plane)
       (make-shape (plane-geometry)))
+
+    (define (glass-sphere)
+      (let ((s (make-shape (sphere-geometry))))
+        (material-set-transparency! (s 'material) 1)
+        (material-set-refractive-index! (s 'material) 1.5)
+        s))
 
     (define (make-shape geometry)
       (define transform (identity-transform))

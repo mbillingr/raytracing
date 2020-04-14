@@ -6,23 +6,29 @@
           material-specular material-set-specular!
           material-shininess material-set-shininess!
           material-reflective material-set-reflective!
-          lighting)
+          material-transparency material-set-transparency!
+          material-refractive-index material-set-refractive-index!
+          lighting
+          refractive-index)
   (import (scheme base)
           (raytrace tuple)
           (raytrace lights))
   (begin
     (define-record-type <material>
-      (make-material color ambient diffuse specular shininess reflective)
+      (make-material color ambient diffuse specular shininess
+                     reflective transparency refractive-index)
       material?
       (color material-color material-set-color!)
       (ambient material-ambient material-set-ambient!)
       (diffuse material-diffuse material-set-diffuse!)
       (specular material-specular material-set-specular!)
       (shininess material-shininess material-set-shininess!)
-      (reflective material-reflective material-set-reflective!))
+      (reflective material-reflective material-set-reflective!)
+      (transparency material-transparency material-set-transparency!)
+      (refractive-index material-refractive-index material-set-refractive-index!))
 
     (define (material c a d s l)
-      (make-material c a d s l 0))
+      (make-material c a d s l 0 0 1))
 
     (define (default-material)
       (material (color 1 1 1)
@@ -58,4 +64,14 @@
 
         (color+ ambient
                 (color+ diffuse
-                        specular))))))
+                        specular))))
+
+    (define (refractive-index m)
+      ((cond ((eq? m 'vacuum) 1)
+             ((eq? m 'air) 1.00029)
+             ((eq? m 'ice) 1.31)
+             ((eq? m 'water) 1.333)
+             ((eq? m 'olive-oil) 1.47)
+             ((eq? m 'glass) 1.52)
+             ((eq? m 'sapphire) 1.77)
+             ((eq? m 'diamond) 2.417))))))

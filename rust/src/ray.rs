@@ -51,24 +51,63 @@ impl<'a> Intersection<'a> {
         Intersection { t, obj }
     }
 
-    pub fn prepare_computations(&self, ray: &Ray) -> IntersectionState {
+    pub fn prepare_computations(&self, ray: &Ray, xs: &[Intersection]) -> IntersectionState {
         let point = ray.position(self.t);
         let eyev = -ray.direction();
         let normalv = self.obj.normal_at(point);
         let inside = normalv.dot(&eyev) < 0.0;
         let normalv = if inside { -normalv } else { normalv };
         let over_point = point + normalv * EPSILON;
+        let under_point = point - normalv * EPSILON;
         let reflectv = ray.direction().reflect(&normalv);
+        let (n1, n2) = self.compute_refractive_indices(xs);
         IntersectionState {
             t: self.t,
             obj: self.obj,
             inside,
             point,
             over_point,
+            under_point,
             eyev,
             normalv,
             reflectv,
+            n1,
+            n2,
         }
+    }
+
+    pub fn compute_refractive_indices(&self, xs: &[Intersection]) -> (f64, f64) {
+        let mut containers: Vec<&Shape> = vec![];
+
+        let mut n1 = 0.0;
+
+        for i in xs {
+            if i == self {
+                n1 = containers
+                    .last()
+                    .map(|shape| shape.material().refractive_index())
+                    .unwrap_or(1.0);
+            }
+
+            if let Some(idx) = containers
+                .iter()
+                .position(|&shape| std::ptr::eq(shape, i.obj))
+            {
+                containers.remove(idx);
+            } else {
+                containers.push(i.obj);
+            }
+
+            if i == self {
+                let n2 = containers
+                    .last()
+                    .map(|shape| shape.material().refractive_index())
+                    .unwrap_or(1.0);
+                return (n1, n2);
+            }
+        }
+
+        panic!("hit not found in intersections")
     }
 }
 
@@ -91,9 +130,12 @@ pub struct IntersectionState<'a> {
     pub inside: bool,
     pub point: Point,
     pub over_point: Point,
+    pub under_point: Point,
     pub eyev: Vector,
     pub normalv: Vector,
     pub reflectv: Vector,
+    pub n1: f64,
+    pub n2: f64,
 }
 
 #[macro_export]
@@ -113,7 +155,7 @@ mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
     use crate::matrix::{rotation_x, scaling, translation};
-    use crate::shapes::{plane, sphere};
+    use crate::shapes::{glass_sphere, plane, sphere};
     use crate::tuple::{point, vector};
     use std::f32::consts::PI;
     use std::f64::consts::{FRAC_1_SQRT_2, SQRT_2};
@@ -241,7 +283,7 @@ mod tests {
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
         let shape = sphere();
         let i = Intersection::new(4.0, &shape);
-        let comps = i.prepare_computations(&r);
+        let comps = i.prepare_computations(&r, &[i]);
         assert_eq!(comps.t, i.t);
         assert_eq!(comps.obj as *const _, i.obj as *const _);
         assert!(!comps.inside);
@@ -256,7 +298,7 @@ mod tests {
         let r = Ray::new(point(0, 0, 0), vector(0, 0, 1));
         let shape = sphere();
         let i = Intersection::new(1.0, &shape);
-        let comps = i.prepare_computations(&r);
+        let comps = i.prepare_computations(&r, &[i]);
         assert!(comps.inside);
         assert_almost_eq!(comps.point, point(0, 0, 1));
         assert_almost_eq!(comps.normalv, vector(0, 0, -1)); // inverted!
@@ -268,7 +310,7 @@ mod tests {
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
         let shape = sphere().with_transform(translation(0, 0, 1));
         let i = Intersection::new(5.0, &shape);
-        let comps = i.prepare_computations(&r);
+        let comps = i.prepare_computations(&r, &[i]);
         assert!(comps.over_point.z() < -EPSILON / 2.0);
         assert!(comps.over_point.z() < comps.point.z());
     }
@@ -279,7 +321,55 @@ mod tests {
         let shape = plane();
         let r = Ray::new(point(0, 1, -1), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let i = Intersection::new(SQRT_2, &shape);
-        let comp = i.prepare_computations(&r);
+        let comp = i.prepare_computations(&r, &[i]);
         assert_almost_eq!(comp.reflectv, vector(0, FRAC_1_SQRT_2, FRAC_1_SQRT_2));
+    }
+
+    /// Finding n1 and n2 at various intersections
+    #[test]
+    fn refractive_index_at_intersections() {
+        let mut a = glass_sphere().with_transform(scaling(2, 2, 2));
+        a.material_mut().set_refractive_index(1.5);
+
+        let mut b = glass_sphere().with_transform(translation(0, 0, -0.25));
+        b.material_mut().set_refractive_index(2.0);
+
+        let mut c = glass_sphere().with_transform(translation(0, 0, 0.25));
+        c.material_mut().set_refractive_index(2.5);
+
+        let r = Ray::new(point(0, 0, -4), vector(0, 0, 1));
+        let xs = intersections![
+            Intersection::new(2.0, &a),
+            Intersection::new(2.75, &b),
+            Intersection::new(3.25, &c),
+            Intersection::new(4.75, &b),
+            Intersection::new(5.25, &c),
+            Intersection::new(6.0, &a)
+        ];
+
+        for (index, n1, n2) in vec![
+            (0, 1.0, 1.5),
+            (1, 1.5, 2.0),
+            (2, 2.0, 2.5),
+            (3, 2.5, 2.5),
+            (4, 2.5, 1.5),
+            (5, 1.5, 1.0),
+        ] {
+            let comps = xs[index].prepare_computations(&r, &xs);
+
+            assert_almost_eq!(comps.n1, n1);
+            assert_almost_eq!(comps.n2, n2);
+        }
+    }
+
+    /// The under point is offset below the surface
+    #[test]
+    fn under_point() {
+        let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
+        let shape = glass_sphere().with_transform(translation(0, 0, 1));
+        let i = Intersection::new(5.0, &shape);
+        let comps = i.prepare_computations(&r, &[i]);
+        assert!(comps.under_point.z() > EPSILON / 2.0);
+        assert!(comps.under_point.z() > comps.point.z());
     }
 }

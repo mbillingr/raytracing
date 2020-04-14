@@ -18,11 +18,13 @@ pub struct Phong {
     specular: f64,
     shininess: f64,
     reflective: f64,
+    transparency: f64,
+    refractive_index: f64,
 }
 
 impl Default for Phong {
     fn default() -> Self {
-        Self::new(color(1, 1, 1), 0.1, 0.9, 0.9, 200.0, 0.0)
+        Self::new(color(1, 1, 1), 0.1, 0.9, 0.9, 200.0, 0.0, 0.0, 1.0)
     }
 }
 
@@ -34,6 +36,8 @@ impl Phong {
         specular: f64,
         shininess: f64,
         reflective: f64,
+        transparency: f64,
+        refractive_index: f64,
     ) -> Self {
         Phong {
             color: SurfaceColor::Flat(color),
@@ -42,6 +46,8 @@ impl Phong {
             specular,
             shininess,
             reflective,
+            transparency,
+            refractive_index,
         }
     }
     pub fn new_pattern(
@@ -51,6 +57,8 @@ impl Phong {
         specular: f64,
         shininess: f64,
         reflective: f64,
+        transparency: f64,
+        refractive_index: f64,
     ) -> Self {
         Phong {
             color: SurfaceColor::Pattern(pattern),
@@ -59,6 +67,8 @@ impl Phong {
             specular,
             shininess,
             reflective,
+            transparency,
+            refractive_index,
         }
     }
 
@@ -69,11 +79,23 @@ impl Phong {
         }
     }
 
+    pub fn set_color(&mut self, c: Color) {
+        self.color = SurfaceColor::Flat(c);
+    }
+
     pub fn with_pattern(self, pattern: Pattern) -> Self {
         Phong {
             color: SurfaceColor::Pattern(pattern),
             ..self
         }
+    }
+
+    pub fn set_pattern(&mut self, p: Pattern) {
+        self.color = SurfaceColor::Pattern(p);
+    }
+
+    pub fn with_rgb(self, r: f64, g: f64, b: f64) -> Self {
+        self.with_color(color(r, g, b))
     }
 
     pub fn with_ambient(self, ambient: f64) -> Self {
@@ -138,6 +160,36 @@ impl Phong {
 
     pub fn set_reflective(&mut self, reflective: f64) {
         self.reflective = reflective
+    }
+
+    pub fn transparency(&self) -> f64 {
+        self.transparency
+    }
+
+    pub fn set_transparency(&mut self, t: f64) {
+        self.transparency = t;
+    }
+
+    pub fn with_transparency(self, transparency: f64) -> Self {
+        Phong {
+            transparency,
+            ..self
+        }
+    }
+
+    pub fn refractive_index(&self) -> f64 {
+        self.refractive_index
+    }
+
+    pub fn set_refractive_index(&mut self, n: f64) {
+        self.refractive_index = n;
+    }
+
+    pub fn with_refractive_index(self, refractive_index: f64) -> Self {
+        Phong {
+            refractive_index,
+            ..self
+        }
     }
 
     pub fn lighting(
@@ -205,6 +257,8 @@ mod tests {
         assert_eq!(m.specular(), 0.9);
         assert_eq!(m.shininess(), 200.0);
         assert_eq!(m.reflective(), 0.0);
+        assert_eq!(m.transparency(), 0.0);
+        assert_eq!(m.refractive_index(), 1.0);
     }
 
     /// Lighting with the eye between light and surface

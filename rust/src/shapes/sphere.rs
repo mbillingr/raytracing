@@ -1,9 +1,24 @@
+use crate::materials::Phong;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
 use crate::tuple::{point, Point, Vector};
 
 pub fn sphere() -> Shape {
     Shape::new(Sphere::new())
+}
+
+/// A helper for producing a sphere with a glassy material
+pub fn glass_sphere() -> Shape {
+    sphere().with_material(
+        Phong::default()
+            .with_rgb(1.0, 1.0, 1.0)
+            .with_ambient(0.01)
+            .with_diffuse(0.1)
+            .with_specular(0.9)
+            .with_shininess(250.0)
+            .with_transparency(1.0)
+            .with_refractive_index(1.5),
+    )
 }
 
 #[derive(Debug)]
@@ -47,6 +62,7 @@ impl Geometry for Sphere {
 mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
+    use crate::matrix::Matrix;
     use crate::tuple::{point, vector};
 
     /// Intersect sets the object on intersection
@@ -159,5 +175,14 @@ mod tests {
         let s = Sphere::new();
         let n = s.normal_at(point(s3, s3, s3));
         assert_almost_eq!(n, n.normalized());
+    }
+
+    /// A helper for producing a sphere with a glassy material
+    #[test]
+    fn glassy_sphere() {
+        let s = glass_sphere();
+        assert_almost_eq!(s.inv_transform(), Matrix::identity());
+        assert_almost_eq!(s.material().transparency(), 1.0);
+        assert_almost_eq!(s.material().refractive_index(), 1.5);
     }
 }

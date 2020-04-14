@@ -168,7 +168,11 @@ mod tests {
     /// Lighting with a pattern applied
     #[test]
     fn stripe_light() {
-        let m = Phong::new_pattern(stripe_pattern(WHITE, BLACK), 1.0, 0.0, 0.0, 1.0, 0.0);
+        let m = Phong::default()
+            .with_pattern(stripe_pattern(WHITE, BLACK))
+            .with_ambient(1.0)
+            .with_diffuse(0.0)
+            .with_specular(0.0);
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, -10), WHITE);

@@ -187,7 +187,13 @@
   (when (s 'set-material! m))
   (then ((s 'material) == m)))
 
-;; sphere shape
+(test "A helper for producing a sphere with a glassy material"
+  (given (s <- (glass-sphere)))
+  (then ((s 'transform) == (identity-transform))
+        ((material-transparency (s 'material)) == 1)
+        ((material-refractive-index (s 'material)) == 1.5)))
+
+;; plane shape
 ;; ===========================================================================
 
 (test "The normal of a plane is constant everywhere"

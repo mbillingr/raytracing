@@ -2,7 +2,7 @@ mod plane;
 mod sphere;
 
 pub use plane::plane;
-pub use sphere::sphere;
+pub use sphere::{glass_sphere, sphere};
 
 use crate::approx_eq::ApproximateEq;
 use crate::color::Color;

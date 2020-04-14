@@ -55,4 +55,9 @@
 
   (test "Reflectivity for the default material"
     (given (m <- (default-material)))
-    (then ((material-reflective m) == 0.0))))
+    (then ((material-reflective m) == 0)))
+
+  (test "Transparency and Refractive Index for the default material"
+    (given (m <- (default-material)))
+    (then ((material-transparency m) == 0)
+          ((material-refractive-index m) == 1))))

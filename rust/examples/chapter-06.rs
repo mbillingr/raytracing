@@ -13,7 +13,11 @@ fn main() {
     canvas.life_view("Canvas view");
 
     let mut obj = sphere();
-    obj.set_material(Phong::new(color(0.2, 0.8, 0.9), 0.1, 0.9, 0.9, 20.0, 0.0));
+    obj.set_material(
+        Phong::default()
+            .with_color(color(0.2, 0.8, 0.9))
+            .with_shininess(20.0),
+    );
 
     let scene = vec![obj];
     let light = PointLight::new(point(1, 9, -10), color(1, 1, 1));
