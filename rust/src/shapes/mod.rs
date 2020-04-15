@@ -13,7 +13,7 @@ use crate::ray::{Intersection, Ray};
 use crate::tuple::{Point, Vector};
 use std::any::Any;
 
-pub trait Geometry: 'static + AsAny + std::fmt::Debug {
+pub trait Geometry: 'static + AsAny + std::fmt::Debug + Sync {
     //fn as_any(&self) -> &dyn Any;// { self }
     fn is_similar(&self, other: &dyn Geometry) -> bool;
     fn intersect<'a>(&self, obj: &'a Shape, local_ray: &Ray) -> Vec<Intersection<'a>>;
@@ -116,8 +116,8 @@ mod tests {
     use crate::approx_eq::ApproximateEq;
     use crate::matrix::{rotation_x, rotation_y, rotation_z, scaling, translation};
     use crate::tuple::{point, vector};
-    use std::cell::RefCell;
     use std::f64::consts::{FRAC_1_SQRT_2, PI};
+    use std::sync::RwLock;
 
     fn test_shape() -> Shape {
         Shape::new(TestGeometry::new())
@@ -125,13 +125,13 @@ mod tests {
 
     #[derive(Debug)]
     struct TestGeometry {
-        last_ray: RefCell<Option<Ray>>,
+        last_ray: RwLock<Option<Ray>>,
     }
 
     impl TestGeometry {
         fn new() -> Self {
             TestGeometry {
-                last_ray: RefCell::new(None),
+                last_ray: RwLock::new(None),
             }
         }
     }
@@ -142,7 +142,7 @@ mod tests {
         }
 
         fn intersect<'a>(&self, _: &'a Shape, local_ray: &Ray) -> Vec<Intersection<'a>> {
-            *self.last_ray.borrow_mut() = Some(local_ray.clone());
+            *self.last_ray.write().unwrap() = Some(local_ray.clone());
             vec![]
         }
 
@@ -164,11 +164,11 @@ mod tests {
             .downcast_ref::<TestGeometry>()
             .unwrap();
         assert_almost_eq!(
-            g.last_ray.borrow().as_ref().unwrap().origin(),
+            g.last_ray.read().unwrap().as_ref().unwrap().origin(),
             point(0, 0, -2.5)
         );
         assert_almost_eq!(
-            g.last_ray.borrow().as_ref().unwrap().direction(),
+            g.last_ray.read().unwrap().as_ref().unwrap().direction(),
             vector(0, 0, 0.5)
         );
     }
@@ -186,11 +186,11 @@ mod tests {
             .downcast_ref::<TestGeometry>()
             .unwrap();
         assert_almost_eq!(
-            g.last_ray.borrow().as_ref().unwrap().origin(),
+            g.last_ray.read().unwrap().as_ref().unwrap().origin(),
             point(-5, 0, -5)
         );
         assert_almost_eq!(
-            g.last_ray.borrow().as_ref().unwrap().direction(),
+            g.last_ray.read().unwrap().as_ref().unwrap().direction(),
             vector(0, 0, 1)
         );
     }
@@ -208,11 +208,11 @@ mod tests {
             .downcast_ref::<TestGeometry>()
             .unwrap();
         assert_almost_eq!(
-            g.last_ray.borrow().as_ref().unwrap().origin(),
+            g.last_ray.read().unwrap().as_ref().unwrap().origin(),
             point(-3.02564, 3.81859, 1.12423)
         );
         assert_almost_eq!(
-            g.last_ray.borrow().as_ref().unwrap().direction(),
+            g.last_ray.read().unwrap().as_ref().unwrap().direction(),
             vector(0.60513, -0.76372, -0.22485)
         );
     }

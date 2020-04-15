@@ -1,5 +1,6 @@
 use raytracing::canvas::Canvas;
 use raytracing::color::color;
+use raytracing::live_preview::{live_preview, Message};
 use raytracing::tuple::{point, vector, Point, Vector};
 use std::fs::File;
 use std::time::Duration;
@@ -7,7 +8,8 @@ use std::time::Duration;
 fn main() {
     let (width, height) = (64, 64);
     let mut canvas = Canvas::new(width, height);
-    canvas.life_view("Canvas view");
+
+    let (h, tx) = live_preview(width, height, "Chapter 2");
 
     let env = Env {
         gravity: vector(0, -1, 0),
@@ -27,6 +29,7 @@ fn main() {
         let y = projectile.pos.y().round() as u32;
         if x < width && y < height {
             canvas.set_pixel(x, height - 1 - y, c);
+            tx.send(Message::set_pixel(x, height - 1 - y, c)).unwrap();
         }
         tick(&env, &mut projectile, dt);
         std::thread::sleep(Duration::from_millis(10));
@@ -34,6 +37,8 @@ fn main() {
 
     let mut f = File::create("pictures/chapter-02.ppm").unwrap();
     canvas.write_ppm(&mut f).unwrap();
+
+    h.join().unwrap();
 }
 
 fn tick(env: &Env, p: &mut Projectile, dt: f64) {

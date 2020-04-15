@@ -1,6 +1,7 @@
 use raytracing::canvas::Canvas;
 use raytracing::color::color;
 use raytracing::lights::PointLight;
+use raytracing::live_preview::{live_preview, Message};
 use raytracing::materials::Phong;
 use raytracing::ray::{hit, Intersection, Ray};
 use raytracing::shapes::sphere;
@@ -10,7 +11,8 @@ use std::fs::File;
 fn main() {
     let (width, height) = (512, 512);
     let mut canvas = Canvas::new(width, height);
-    canvas.life_view("Canvas view");
+
+    let (h, tx) = live_preview(width, height, "Chapter 6");
 
     let mut obj = sphere();
     obj.set_material(
@@ -45,10 +47,13 @@ fn main() {
                     .material()
                     .lighting(&sphere(), &light, p, eyev, normalv, false);
                 canvas.set_pixel(i, j, color);
+                tx.send(Message::set_pixel(i, j, color)).unwrap();
             }
         }
     }
 
     let mut f = File::create("pictures/chapter-06.ppm").unwrap();
     canvas.write_ppm(&mut f).unwrap();
+
+    h.join().unwrap();
 }

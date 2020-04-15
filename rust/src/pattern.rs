@@ -2,7 +2,7 @@ use crate::approx_eq::EPSILON;
 use crate::color::Color;
 use crate::matrix::Matrix;
 use crate::tuple::Point;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn stripe_pattern(a: Color, b: Color) -> Pattern {
     Pattern::new(move |p| if p.x().floor() % 2.0 == 0.0 { a } else { b })
@@ -36,14 +36,14 @@ pub fn checkers_pattern(a: Color, b: Color) -> Pattern {
 
 #[derive(Clone)]
 pub struct Pattern {
-    func: Rc<dyn Fn(Point) -> Color>,
+    func: Arc<dyn Sync + Send + Fn(Point) -> Color>,
     inv_transform: Matrix,
 }
 
 impl Pattern {
-    pub fn new(f: impl 'static + Fn(Point) -> Color) -> Self {
+    pub fn new(f: impl 'static + Sync + Send + Fn(Point) -> Color) -> Self {
         Pattern {
-            func: Rc::new(f),
+            func: Arc::new(f),
             inv_transform: Matrix::identity(),
         }
     }
@@ -74,7 +74,7 @@ impl std::fmt::Debug for Pattern {
 
 impl PartialEq for Pattern {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.func, &other.func)
+        Arc::ptr_eq(&self.func, &other.func)
     }
 }
 

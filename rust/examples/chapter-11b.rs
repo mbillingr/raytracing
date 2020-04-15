@@ -2,7 +2,7 @@ use raytracing::camera::Camera;
 use raytracing::color::color;
 use raytracing::lights::PointLight;
 use raytracing::materials::Phong;
-use raytracing::matrix::{scaling, translation};
+use raytracing::matrix::translation;
 use raytracing::pattern::checkers_pattern;
 use raytracing::shapes::{plane, sphere};
 use raytracing::tuple::{point, vector};
@@ -24,7 +24,9 @@ fn main() {
         .with_diffuse(0.9)
         .with_specular(0.0);
 
-    let floor = plane().with_material(floor_material.clone()).with_transform(translation(0, -1, 0));
+    let floor = plane()
+        .with_material(floor_material.clone())
+        .with_transform(translation(0, -1, 0));
     world.add_shape(floor);
 
     let water_material = Phong::default()
@@ -36,8 +38,9 @@ fn main() {
         .with_transparency(1.0)
         .with_refractive_index(1.3);
 
-
-    let water = plane().with_material(water_material.clone()).with_transform(translation(0, 0, 0));
+    let water = plane()
+        .with_material(water_material.clone())
+        .with_transform(translation(0, 0, 0));
     world.add_shape(water);
 
     let sky = plane()
@@ -58,7 +61,7 @@ fn main() {
                 .with_color(color(1, 0, 0))
                 .with_ambient(0.5)
                 .with_diffuse(0.5)
-                .with_specular(0.8)
+                .with_specular(0.8),
         );
     world.add_shape(left);
 
@@ -69,7 +72,7 @@ fn main() {
                 .with_color(color(0, 1, 0))
                 .with_ambient(0.5)
                 .with_diffuse(0.5)
-                .with_specular(0.8)
+                .with_specular(0.8),
         );
     world.add_shape(right);
 

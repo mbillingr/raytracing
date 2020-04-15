@@ -79,7 +79,7 @@ fn main() {
         point(0, 1, 0),
         vector(0, 1, 0),
     );
-    camera.set_multisampling(8);
+    camera.set_multisampling(64);
 
     let image = camera.render_live(&world, "Chapter 7");
 

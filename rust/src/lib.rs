@@ -5,9 +5,9 @@ pub mod ray;
 
 pub mod camera;
 pub mod canvas;
-mod canvas_life;
 pub mod color;
 pub mod lights;
+pub mod live_preview;
 pub mod materials;
 pub mod matrix;
 pub mod pattern;

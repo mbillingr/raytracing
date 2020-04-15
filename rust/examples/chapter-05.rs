@@ -1,5 +1,6 @@
 use raytracing::canvas::Canvas;
 use raytracing::color::color;
+use raytracing::live_preview::{live_preview, Message};
 use raytracing::ray::{hit, Intersection, Ray};
 use raytracing::shapes::sphere;
 use raytracing::tuple::{point, vector};
@@ -8,7 +9,8 @@ use std::fs::File;
 fn main() {
     let (width, height) = (512, 512);
     let mut canvas = Canvas::new(width, height);
-    canvas.life_view("Canvas view");
+
+    let (h, tx) = live_preview(width, height, "Chapter 5");
 
     let scene = vec![sphere()];
 
@@ -29,19 +31,18 @@ fn main() {
                 .collect();
             let h = hit(&intersections);
 
-            canvas.set_pixel(
-                i,
-                j,
-                match h {
-                    None => color(0.5, 0.5, 0.5),
-                    Some(Intersection { t, .. }) => {
-                        mi = mi.min(t);
-                        ma = ma.max(t);
-                        let d = (3.3 - t) * 3.0;
-                        color(0, d, 1)
-                    }
-                },
-            );
+            let c = match h {
+                None => color(0.5, 0.5, 0.5),
+                Some(Intersection { t, .. }) => {
+                    mi = mi.min(t);
+                    ma = ma.max(t);
+                    let d = (3.3 - t) * 3.0;
+                    color(0, d, 1)
+                }
+            };
+
+            canvas.set_pixel(i, j, c);
+            tx.send(Message::set_pixel(i, j, c)).unwrap();
         }
     }
 
@@ -49,4 +50,6 @@ fn main() {
 
     let mut f = File::create("pictures/chapter-05.ppm").unwrap();
     canvas.write_ppm(&mut f).unwrap();
+
+    h.join().unwrap();
 }

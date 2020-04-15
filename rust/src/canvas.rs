@@ -1,8 +1,5 @@
-use crate::canvas_life::Message;
 use crate::color::{color, Color};
 use std::io::Write;
-use std::sync::mpsc::Sender;
-use std::thread::JoinHandle;
 
 pub fn canvas(w: u32, h: u32) -> Canvas {
     Canvas::new(w, h)
@@ -12,16 +9,6 @@ pub struct Canvas {
     width: u32,
     height: u32,
     data: Vec<Color>,
-    pub(crate) threads: Vec<JoinHandle<()>>,
-    pub(crate) listeners: Vec<Sender<Message>>,
-}
-
-impl Drop for Canvas {
-    fn drop(&mut self) {
-        for thread in self.threads.drain(..) {
-            thread.join().unwrap()
-        }
-    }
 }
 
 impl Canvas {
@@ -30,8 +17,6 @@ impl Canvas {
             width,
             height,
             data: vec![color(0, 0, 0); (width * height) as usize],
-            threads: vec![],
-            listeners: vec![],
         }
     }
 
@@ -46,24 +31,15 @@ impl Canvas {
     pub fn clear(&mut self, c: Color) {
         self.data.clear();
         self.data.resize((self.width * self.height) as usize, c);
-
-        let (r, g, b) = c.to_u8();
-        self.send_message(Message::Clear(r, g, b))
     }
 
     pub fn set_pixel(&mut self, x: u32, y: u32, c: Color) {
         self.rows_mut().skip(y as usize).next().unwrap()[x as usize] = c;
-
-        let (r, g, b) = c.to_u8();
-        self.send_message(Message::SetPixel(x as i32, y as i32, r, g, b))
     }
 
     pub fn add_to_pixel(&mut self, x: u32, y: u32, c: Color) {
         let pix = &mut self.rows_mut().skip(y as usize).next().unwrap()[x as usize];
         *pix = *pix + c;
-
-        let (r, g, b) = pix.to_u8();
-        self.send_message(Message::SetPixel(x as i32, y as i32, r, g, b))
     }
 
     pub fn get_pixel(&self, x: u32, y: u32) -> Color {
@@ -106,12 +82,6 @@ impl Canvas {
             write!(writer, "\n")?;
         }
         Ok(())
-    }
-
-    fn send_message(&self, msg: Message) {
-        for tx in &self.listeners {
-            tx.send(msg).unwrap();
-        }
     }
 }
 

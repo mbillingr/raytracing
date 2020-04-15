@@ -1,10 +1,14 @@
 use crate::canvas::Canvas;
+use crate::color::Color;
+use crate::live_preview::{live_preview, Message};
 use crate::matrix::Matrix;
 use crate::ray::Ray;
 use crate::tuple::{point, Point, Vector};
 use crate::world::World;
 use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
+use rayon::prelude::*;
+use std::sync::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct Camera {
@@ -112,32 +116,58 @@ impl Camera {
     }
 
     pub fn render(&self, world: &World) -> Canvas {
-        let mut image = Canvas::new(self.hsize, self.vsize);
-        self.render_to_canvas(world, &mut image);
-        image
+        let mut canvas = Canvas::new(self.hsize, self.vsize);
+        for (x, y, c) in self.trace_pixels(world, |_, _, _| ()) {
+            canvas.add_to_pixel(x, y, c);
+        }
+        canvas
     }
 
     pub fn render_live(&self, world: &World, window_name: &'static str) -> Canvas {
-        let mut image = Canvas::new(self.hsize, self.vsize);
-        image.life_view(window_name);
-        self.render_to_canvas(world, &mut image);
-        image
+        let mut canvas = Canvas::new(self.hsize, self.vsize);
+        let (h, tx) = live_preview(self.hsize, self.vsize, window_name);
+        // It sucks to wrap the Sender in a Mutex. Ideally, each thread would have one copy
+        // of tx, but there does not seem to be an easy way to accomplish this with Rayon.
+        let tx = Mutex::new(tx);
+        for (x, y, c) in self.trace_pixels(world, move |x, y, c| {
+            tx.lock()
+                .unwrap()
+                .send(Message::set_pixel(x, y, c))
+                .unwrap();
+        }) {
+            canvas.add_to_pixel(x, y, c);
+        }
+        h.join().unwrap();
+        canvas
     }
 
-    pub fn render_to_canvas(&self, world: &World, canvas: &mut Canvas) {
+    pub fn trace_pixels(
+        &self,
+        world: &World,
+        pixel_callback: impl Sync + Fn(u32, u32, Color),
+    ) -> Vec<(u32, u32, Color)> {
         let mut coordinates: Vec<_> = (0..self.vsize)
             .flat_map(|y| (0..self.hsize).map(move |x| (x, y)))
             .collect();
         coordinates.shuffle(&mut thread_rng());
-        for (x, y, color) in coordinates
-            .into_iter()
-            .flat_map(|(x, y)| {
-                (0..self.multisampling).map(move |n| (x, y, self.ray_for_pixel(x, y, n > 0)))
+
+        coordinates
+            .par_iter()
+            .filter_map(|&(x, y)| {
+                let mut color = None;
+                for n in 0..self.multisampling {
+                    let ray = self.ray_for_pixel(x, y, n > 0);
+                    color = match (color, world.trace(&ray)) {
+                        (None, None) => None,
+                        (Some(c), None) => Some(c),
+                        (None, Some(c)) => Some(c * (1.0 / self.multisampling as f64)),
+                        (Some(c1), Some(c2)) => Some(c1 + c2 * (1.0 / self.multisampling as f64)),
+                    };
+                }
+                color.map(|c| (x, y, c))
             })
-            .filter_map(|(x, y, ray)| world.trace(&ray).map(|c| (x, y, c)))
-        {
-            canvas.add_to_pixel(x, y, color * (1.0 / self.multisampling as f64))
-        }
+            .inspect(|&(x, y, color)| pixel_callback(x, y, color))
+            .collect()
     }
 }
 
