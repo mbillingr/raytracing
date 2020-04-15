@@ -2,7 +2,8 @@
   (export empty-world default-world make-world
           prepare-computations
           comp-t comp-object comp-point comp-over-point comp-under-point
-          comp-eyev comp-normalv comp-inside? comp-reflectv comp-nu1 comp-nu2)
+          comp-eyev comp-normalv comp-inside? comp-reflectv comp-nu1 comp-nu2
+          schlick)
   (import (scheme base)
           (scheme inexact)
           (scheme write)
@@ -48,19 +49,25 @@
         (let loop ((l lights))
           (if (null? l)
               (color 0 0 0)
-              (begin
+              (let* ((reflected (reflected-color comps remaining-bounces))
+                     (refracted (refracted-color comps remaining-bounces))
+                     (material ((comp-object comps) 'material))
+                     (surface (lighting material
+                                        (comp-object comps)
+                                        (car l)
+                                        (comp-over-point comps)
+                                        (comp-eyev comps)
+                                        (comp-normalv comps)
+                                        (is-shadowed (car l) (comp-over-point comps)))))
                 (color+
-                  (color+
-                    (lighting ((comp-object comps) 'material)
-                              (comp-object comps)
-                              (car l)
-                              (comp-over-point comps)
-                              (comp-eyev comps)
-                              (comp-normalv comps)
-                              (is-shadowed (car l) (comp-over-point comps)))
-                    (color+
-                      (reflected-color comps remaining-bounces)
-                      (refracted-color comps remaining-bounces)))
+                  (if (and (< 0 (material-reflective material))
+                           (< 0 (material-transparency material)))
+                      (let ((reflectance (schlick comps)))
+                        (color+ surface
+                                (color+ (color-scale reflected reflectance)
+                                        (color-scale refracted (- 1 reflectance)))))
+                      (color+ surface
+                              (color+ reflected refracted)))
                   (loop (cdr l)))))))
 
       (define (color-at ray remaining-bounces)
@@ -198,4 +205,26 @@
       (let ((new-seq (loop sequence)))
         (if should-adjoin?
             (cons obj new-seq)
-            new-seq)))))
+            new-seq)))
+
+    (define (schlick comps)
+      (let ((cos (dot (comp-eyev comps)
+                      (comp-normalv comps))))
+        (if (< (comp-nu2 comps) (comp-nu1 comps))
+            (let* ((n (/ (comp-nu1 comps) (comp-nu2 comps)))
+                   (sin2-t (* n n (- 1.0 (* cos cos)))))
+              (if (< 1.0 sin2-t)
+                  1
+                  (schlick-helper (comp-nu1 comps)
+                                  (comp-nu2 comps)
+                                  (sqrt (- 1.0 sin2-t)))))
+
+            (schlick-helper (comp-nu1 comps)
+                            (comp-nu2 comps)
+                            cos))))
+
+    (define (schlick-helper n1 n2 cos)
+      (let* ((r0-sqrt (/ (- n1 n2) (+ n1 n2)))
+             (r0 (* r0-sqrt r0-sqrt)))
+        (+ r0 (* (- 1.0 r0)
+                 (expt (- 1.0 cos) 5)))))))

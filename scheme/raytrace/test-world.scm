@@ -339,27 +339,47 @@
         (c <- (w 'shade-hit comps)))
   (then (c == (color 0.93642 0.68642 0.68642))))
 
-(test "BUG?: total inner reflection at steep angles"
-  (given (w <- (empty-world))
+(test "The Schlick approximation under total internal reflection"
+  (given (shape <- (glass-sphere))
+         (r <- (ray (point 0 0 SQRT2/2) (vec 0 1 0)))
+         (xs <- (intersections (intersection (- SQRT2/2) shape)
+                               (intersection SQRT2/2 shape))))
+  (when (comps <- (prepare-computations (cadr xs) r xs))
+        (reflectance <- (schlick comps)))
+  (then (reflectance == 1.0)))
+
+(test "The Schlick approximation with a perpendicular viewing angle"
+  (given (shape <- (glass-sphere))
+         (r <- (ray (point 0 0 0) (vec 0 1 0)))
+         (xs <- (intersections (intersection -1 shape)
+                               (intersection 1 shape))))
+  (when (comps <- (prepare-computations (cadr xs) r xs))
+        (reflectance <- (schlick comps)))
+  (then (reflectance == 0.04)))
+
+(test "The Schlick approximation with a small angle and nu2 > nu1"
+  (given (shape <- (glass-sphere))
+         (r <- (ray (point 0 0.99 -2) (vec 0 0 1)))
+         (xs <- (intersections (intersection 1.8589 shape))))
+  (when (comps <- (prepare-computations (car xs) r xs))
+        (reflectance <- (schlick comps)))
+  (then (reflectance == 0.48873)))
+
+(test "(shade-hit) with a reflective, transparent material"
+  (given (w <- (default-world))
          (floor <- (plane))
          (ball <- (sphere))
-         (bubble <- (sphere))
-         (r <- (ray (point 0 5 0) (vec 0 -1 0))))
-  (when (floor 'set-transform! (translation 0 -5 0))
-        (floor 'set-material! (make-material
-                                (color 1 0.5 0.25)
-                                1.0 0.0 0.0 200.0 0.0 0.0 1.0))
+         (r <- (ray (point 0 0 -3) (vec 0 (- SQRT2/2) SQRT2/2))))
+  (when (floor 'set-transform! (translation 0 -1 0))
+        (material-set-reflective! (floor 'material) 0.5)
+        (material-set-transparency! (floor 'material) 0.5)
+        (material-set-refractive-index! (floor 'material) 1.5)
         (w 'add-object! floor)
-        (ball 'set-material! (make-material
-                               (color 0 0 0)
-                               0.0 0.0 1.0 200.0 0.0 1.0 1.5))
+        (ball 'set-transform! (translation 0 -3.5 -0.5))
+        (material-set-color! (ball 'material) (color 1 0 0))
         (material-set-ambient! (ball 'material) 0.5)
         (w 'add-object! ball)
-        (bubble 'set-transform! (scaling 0.5 0.5 0.5))
-        (bubble 'set-material! (make-material
-                                 (color 0 0 0)
-                                 0.0 0.0 0.0 200.0 0.0 1.0 1.0))
-        (w 'add-object! bubble)
-        (w 'add-light! (point-light (point -10 10 -10) (color 1 1 1)))
-        (c <- (w 'color-at r)))
-  (then (c == (color 1 0.5 0.25))))
+        (xs <- (intersections (intersection SQRT2 floor)))
+        (comps <- (prepare-computations (car xs) r xs))
+        (c <- (w 'shade-hit comps)))
+  (then (c == (color 0.93391 0.69643 0.69243))))

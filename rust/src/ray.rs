@@ -138,6 +138,34 @@ pub struct IntersectionState<'a> {
     pub n2: f64,
 }
 
+impl IntersectionState<'_> {
+    pub fn schlick(&self) -> f64 {
+        let mut cos_en = self.eyev.dot(&self.normalv);
+
+        if self.n1 > self.n2 {
+            let n = self.n1 / self.n2;
+            let sin2_t = n * n * (1.0 - cos_en * cos_en);
+            if sin2_t > 1.0 {
+                return 1.0;
+            }
+
+            let cos_t = (1.0 - sin2_t).sqrt();
+            cos_en = cos_t
+        }
+
+        let r0 = sqr((self.n1 - self.n2) / (self.n1 + self.n2));
+
+        let tmp = 1.0 - cos_en;
+        let tmp_pow_2 = tmp * tmp;
+        let tmp_pow_5 = tmp_pow_2 * tmp_pow_2 * tmp;
+        r0 + (1.0 - r0) * tmp_pow_5
+    }
+}
+
+fn sqr(x: f64) -> f64 {
+    x * x
+}
+
 #[macro_export]
 macro_rules! intersections {
     ($($x:expr),* $(,)?) => {{
@@ -371,5 +399,44 @@ mod tests {
         let comps = i.prepare_computations(&r, &[i]);
         assert!(comps.under_point.z() > EPSILON / 2.0);
         assert!(comps.under_point.z() > comps.point.z());
+    }
+
+    /// The Schlick approximation under total internal reflection
+    #[test]
+    fn schlick_internal() {
+        let shape = glass_sphere();
+        let ray = Ray::new(point(0, 0, FRAC_1_SQRT_2), vector(0, 1, 0));
+        let xs = intersections![
+            Intersection::new(-FRAC_1_SQRT_2, &shape),
+            Intersection::new(FRAC_1_SQRT_2, &shape)
+        ];
+        let comps = xs[1].prepare_computations(&ray, &xs);
+        let reflectance = comps.schlick();
+        assert_almost_eq!(reflectance, 1.0)
+    }
+
+    /// The Schlick approximation with a perpendicular viewing angle
+    #[test]
+    fn schlick_steep() {
+        let shape = glass_sphere();
+        let ray = Ray::new(point(0, 0, 0), vector(0, 1, 0));
+        let xs = intersections![
+            Intersection::new(-1.0, &shape),
+            Intersection::new(1.0, &shape)
+        ];
+        let comps = xs[1].prepare_computations(&ray, &xs);
+        let reflectance = comps.schlick();
+        assert_almost_eq!(reflectance, 0.04)
+    }
+
+    /// The Schlick approximation with a small angle and n2 > n1
+    #[test]
+    fn schlick_flat() {
+        let shape = glass_sphere();
+        let ray = Ray::new(point(0, 0.99, -2), vector(0, 0, 1));
+        let xs = intersections![Intersection::new(1.8589, &shape)];
+        let comps = xs[0].prepare_computations(&ray, &xs);
+        let reflectance = comps.schlick();
+        assert_almost_eq!(reflectance, 0.48873)
     }
 }

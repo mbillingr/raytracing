@@ -60,7 +60,8 @@ impl World {
     }
 
     fn shade_hit(&self, comps: IntersectionState, remaining_bounces: u32) -> Color {
-        self.lights.iter().fold(BLACK, |color, light| {
+        let material = comps.obj.material();
+        let surface = self.lights.iter().fold(BLACK, |color, light| {
             color
                 + comps.obj.material().lighting(
                     &comps.obj,
@@ -70,9 +71,17 @@ impl World {
                     comps.normalv,
                     self.is_shadowed(&light, comps.over_point),
                 )
-                + self.reflected_color(&comps, remaining_bounces)
-                + self.refracted_color(&comps, remaining_bounces)
-        })
+        });
+
+        let reflected = self.reflected_color(&comps, remaining_bounces);
+        let refracted = self.refracted_color(&comps, remaining_bounces);
+
+        if material.reflective() > 0.0 && material.transparency() > 0.0 {
+            let reflectance = comps.schlick();
+            surface + reflected * reflectance + refracted * (1.0 - reflectance)
+        } else {
+            surface + reflected + refracted
+        }
     }
 
     pub fn intersect(&self, ray: &Ray) -> Vec<Intersection> {
@@ -467,5 +476,32 @@ mod tests {
         let comps = xs[0].prepare_computations(&r, &xs);
         let c = w.shade_hit(comps, 5);
         assert_almost_eq!(c, color(0.93642, 0.68642, 0.68642));
+    }
+
+    /// shade-hit() with a reflective, transparent material
+    #[test]
+    fn schlick_shading() {
+        let mut w = World::default();
+        w.add_shape(
+            plane().with_transform(translation(0, -1, 0)).with_material(
+                Phong::default()
+                    .with_reflective(0.5)
+                    .with_transparency(0.5)
+                    .with_refractive_index(1.5),
+            ),
+        );
+        w.add_shape(
+            sphere()
+                .with_transform(translation(0, -3.5, -0.5))
+                .with_material(Phong::default().with_rgb(1.0, 0.0, 0.0).with_ambient(0.5)),
+        );
+
+        let floor = &w.objects[2];
+
+        let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
+        let xs = intersections![Intersection::new(SQRT_2, floor),];
+        let comps = xs[0].prepare_computations(&r, &xs);
+        let c = w.shade_hit(comps, 5);
+        assert_almost_eq!(c, color(0.93391, 0.69643, 0.69243));
     }
 }
