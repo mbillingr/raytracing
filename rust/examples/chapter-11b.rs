@@ -30,15 +30,16 @@ fn main() {
     world.add_shape(floor);
 
     let water_material = Phong::default()
-        .with_color(color(0.01, 0.01, 0.1))
+        .with_color(color(0.1, 0.1, 0.5))
         .with_ambient(0.0)
-        .with_diffuse(0.0)
+        .with_diffuse(1.0)
         .with_specular(0.5)
         .with_reflective(1.0)
         .with_transparency(1.0)
         .with_refractive_index(1.3);
 
     let water = plane()
+        .with_cast_shadow(false)
         .with_material(water_material.clone())
         .with_transform(translation(0, 0, 0));
     world.add_shape(water);
@@ -71,7 +72,7 @@ fn main() {
             Phong::default()
                 .with_color(color(0, 1, 0))
                 .with_ambient(0.5)
-                .with_diffuse(0.5)
+                .with_diffuse(0.1)
                 .with_specular(0.8),
         );
     world.add_shape(right);

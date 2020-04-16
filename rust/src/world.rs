@@ -85,10 +85,25 @@ impl World {
     }
 
     pub fn intersect(&self, ray: &Ray) -> Vec<Intersection> {
-        let mut xs = vec![];
-        for obj in &self.objects {
-            xs.extend(obj.intersect(ray));
-        }
+        let mut xs: Vec<_> = self
+            .objects
+            .iter()
+            .flat_map(|obj| obj.intersect(ray))
+            .collect();
+        xs.sort_unstable_by(|a, b| {
+            a.t.partial_cmp(&b.t)
+                .expect("Unable to compare intersection distances")
+        });
+        xs
+    }
+
+    pub fn intersect_shadow(&self, ray: &Ray) -> Vec<Intersection> {
+        let mut xs: Vec<_> = self
+            .objects
+            .iter()
+            .filter(|obj| obj.cast_shadow())
+            .flat_map(|obj| obj.intersect(ray))
+            .collect();
         xs.sort_unstable_by(|a, b| {
             a.t.partial_cmp(&b.t)
                 .expect("Unable to compare intersection distances")
@@ -98,7 +113,7 @@ impl World {
 
     pub fn is_shadowed(&self, light: &PointLight, p: Point) -> bool {
         let direction = light.position() - p;
-        hit(&self.intersect(&Ray::new(p, direction.normalized())))
+        hit(&self.intersect_shadow(&Ray::new(p, direction.normalized())))
             .map(|i| i.t < direction.len())
             .unwrap_or(false)
     }
@@ -279,6 +294,16 @@ mod tests {
     fn shadow4() {
         let w = World::default();
         let p = point(-2, 2, -2);
+        assert!(!w.is_shadowed(&w.lights[0], p))
+    }
+
+    /// There is no shadow when the object between point and light does not cast shadows
+    #[test]
+    fn shadow6() {
+        let mut w = World::default();
+        w.objects[0].set_cast_shadow(false);
+        w.objects[1].set_cast_shadow(false);
+        let p = point(10, -10, 10);
         assert!(!w.is_shadowed(&w.lights[0], p))
     }
 

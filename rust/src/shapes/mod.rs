@@ -25,6 +25,7 @@ pub struct Shape {
     material: Phong,
     transform: Matrix,
     inv_transform: Matrix,
+    cast_shadow: bool,
     geometry: Box<dyn Geometry>,
 }
 
@@ -34,6 +35,7 @@ impl Shape {
             material: Phong::default(),
             transform: Matrix::identity(),
             inv_transform: Matrix::identity(),
+            cast_shadow: true,
             geometry: Box::new(geometry),
         }
     }
@@ -85,6 +87,21 @@ impl Shape {
     pub fn set_transform(&mut self, t: Matrix) {
         self.transform = t;
         self.inv_transform = t.inverse();
+    }
+
+    pub fn cast_shadow(&self) -> bool {
+        self.cast_shadow
+    }
+
+    pub fn set_cast_shadow(&mut self, b: bool) {
+        self.cast_shadow = b
+    }
+
+    pub fn with_cast_shadow(self, cast_shadow: bool) -> Self {
+        Shape {
+            cast_shadow,
+            ..self
+        }
     }
 
     pub fn is_similar(&self, other: &Self) -> bool {
