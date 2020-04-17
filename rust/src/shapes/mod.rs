@@ -1,6 +1,8 @@
+mod cube;
 mod plane;
 mod sphere;
 
+pub use cube::cube;
 pub use plane::plane;
 pub use sphere::{glass_sphere, sphere};
 

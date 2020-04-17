@@ -228,3 +228,48 @@
          (r <- (ray (point 0 -1 0) (vec 0 1 0))))
   (when (xs <- (p 'intersect r)))
   (then (xs == `((1.0 . ,p)))))
+
+;; cube shape
+;; ===========================================================================
+
+(let ((outline
+        (lambda (origin direction t1 t2)
+          (test "A ray intersects a cube"
+            (given (c <- (cube))
+                   (r <- (ray origin direction)))
+            (when (xs <- (c 'intersect r)))
+            (then ((length xs) == 2)
+                  ((intersection-t (car xs)) == t1)
+                  ((intersection-t (cadr xs)) == t2))))))
+  (outline (point  5 0.5 0) (vec -1 0 0) 4 6)   ; +x
+  (outline (point -5 0.5 0) (vec  1 0 0) 4 6)   ; -x
+  (outline (point 0.5  5 0) (vec 0 -1 0) 4 6)   ; +y
+  (outline (point 0.5 -5 0) (vec 0  1 0) 4 6)   ; -y
+  (outline (point 0.5 0  5) (vec 0 0 -1) 4 6)   ; +z
+  (outline (point 0.5 0 -5) (vec 0 0  1) 4 6)   ; -z
+  (outline (point 0 0.5 0) (vec 0 0 1) -1 1))   ; inside
+
+(let ((outline
+        (lambda (origin direction)
+          (test "A ray misses a cube"
+            (given (c <- (cube))
+                   (r <- (ray origin direction)))
+            (when (xs <- (c 'intersect r)))
+            (then ((length xs) == 0))))))
+  (outline (point -2 0 0) (vec 0.2673 0.5345 0.8018))
+  (outline (point 0 -2 0) (vec 0.8018 0.2673 0.5345))
+  (outline (point 0 0 -2) (vec 0.5345 0.8018 0.2673))
+  (outline (point 2 0 2) (vec 0 0 -1))
+  (outline (point 0 2 2) (vec 0 -1 0))
+  (outline (point 2 2 0) (vec -1 0 0)))
+
+(test "Normals on the surfaces of a cube"
+  (given (c <- (cube)))
+  (then ((c 'normal-at (point  1.0  0.5 -0.8)) == (vec  1 0 0))
+        ((c 'normal-at (point -1.0 -0.2  0.9)) == (vec -1 0 0))
+        ((c 'normal-at (point -0.4  1.0 -0.1)) == (vec 0  1 0))
+        ((c 'normal-at (point  0.3 -1.0 -0.7)) == (vec 0 -1 0))
+        ((c 'normal-at (point -0.6  0.3  1.0)) == (vec 0 0  1))
+        ((c 'normal-at (point  0.4  0.4 -1.0)) == (vec 0 0 -1))
+        ((c 'normal-at (point 1 1 1)) == (vec 1 0 0))
+        ((c 'normal-at (point -1 -1 -1)) == (vec -1 0 0))))

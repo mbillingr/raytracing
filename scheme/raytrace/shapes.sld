@@ -1,6 +1,6 @@
 (define-library (raytrace shapes)
-  (export make-shape sphere glass-sphere plane)
-  (import (scheme base)
+  (export make-shape sphere glass-sphere plane cube)
+  (import (scheme base) (scheme write)
           (scheme inexact)
           (raytrace tuple)
           (raytrace ray)
@@ -15,6 +15,9 @@
 
     (define (plane)
       (make-shape (plane-geometry)))
+
+    (define (cube)
+      (make-shape (cube-geometry)))
 
     (define (glass-sphere)
       (let ((s (make-shape (sphere-geometry))))
@@ -101,6 +104,49 @@
 
       (define (normal-at local-p)
         (vec 0 1 0))
+
+      (define (dispatch m . args)
+        (cond ((eq? m 'intersect) (intersect (car args) (cadr args)))
+              ((eq? m 'normal-at) (normal-at (car args)))
+              (else (error "unknown method (plane-geometry m ...)" m))))
+
+      dispatch)
+
+    (define (cube-geometry)
+      (define (intersect shape local-ray)
+        (let* ((origin (ray-origin local-ray))
+               (direction (ray-direction local-ray))
+               (x (check-axis (tuple-x origin) (tuple-x direction)))
+               (y (check-axis (tuple-y origin) (tuple-y direction)))
+               (z (check-axis (tuple-z origin) (tuple-z direction)))
+               (t-min (max (car x) (car y) (car z)))
+               (t-max (min (cdr x) (cdr y) (cdr z))))
+          (if (< t-max t-min)
+              (intersections)
+              (intersections
+                (intersection t-min shape)
+                (intersection t-max shape)))))
+
+      (define (normal-at local-p)
+        (let ((x (tuple-x local-p))
+              (y (tuple-y local-p))
+              (z (tuple-z local-p)))
+          (let ((maxc (max (abs x) (abs y) (abs z))))
+            (cond ((= maxc (abs x)) (vec x 0 0))
+                  ((= maxc (abs y)) (vec 0 y 0))
+                  (else (vec 0 0 z))))))
+
+      (define (check-axis origin direction)
+        (if (< (abs direction) EPSILON)
+            (cons (* (- -1 origin) +inf.0)
+                  (* (- 1 origin) +inf.0))
+            (cons-sort (/ (- -1 origin) direction)
+                       (/ (- 1 origin) direction))))
+
+      (define (cons-sort a b)
+        (if (< b a)
+            (cons b a)
+            (cons a b)))
 
       (define (dispatch m . args)
         (cond ((eq? m 'intersect) (intersect (car args) (cadr args)))
