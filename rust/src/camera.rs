@@ -5,7 +5,7 @@ use crate::matrix::Matrix;
 use crate::ray::Ray;
 use crate::tuple::{point, Point, Vector};
 use crate::world::World;
-use rand::seq::SliceRandom;
+//use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use rayon::prelude::*;
 use std::sync::Mutex;
@@ -146,10 +146,10 @@ impl Camera {
         world: &World,
         pixel_callback: impl Sync + Fn(u32, u32, Color),
     ) -> Vec<(u32, u32, Color)> {
-        let mut coordinates: Vec<_> = (0..self.vsize)
+        let coordinates: Vec<_> = (0..self.vsize)
             .flat_map(|y| (0..self.hsize).map(move |x| (x, y)))
             .collect();
-        coordinates.shuffle(&mut thread_rng());
+        //coordinates.shuffle(&mut thread_rng());
 
         coordinates
             .par_iter()
