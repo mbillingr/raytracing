@@ -35,6 +35,22 @@ impl Point {
     pub fn w(&self) -> f64 {
         self.0[3]
     }
+
+    pub fn set_x(&mut self, x: f64) {
+        self.0[0] = x;
+    }
+
+    pub fn set_y(&mut self, y: f64) {
+        self.0[1] = y
+    }
+
+    pub fn set_z(&mut self, z: f64) {
+        self.0[2] = z
+    }
+
+    pub fn set_w(&mut self, w: f64) {
+        self.0[3] = w
+    }
 }
 
 #[derive(Debug, Copy, Clone)]

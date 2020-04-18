@@ -1,8 +1,10 @@
 mod cube;
+pub mod planar_heightmap;
 mod plane;
 mod sphere;
 
 pub use cube::cube;
+pub use planar_heightmap::planar_heightmap;
 pub use plane::plane;
 pub use sphere::{glass_sphere, sphere};
 

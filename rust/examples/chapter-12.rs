@@ -2,9 +2,9 @@ use raytracing::camera::Camera;
 use raytracing::color::color;
 use raytracing::lights::PointLight;
 use raytracing::materials::Phong;
-use raytracing::matrix::{translation, scaling, shearing};
-use raytracing::pattern::checkers_pattern;
-use raytracing::shapes::{plane, cube};
+use raytracing::matrix::{rotation_z, scaling, shearing, translation};
+use raytracing::pattern::{checkers_pattern, gradient_pattern};
+use raytracing::shapes::{cube, planar_heightmap, plane, sphere};
 use raytracing::tuple::{point, vector};
 use raytracing::world::World;
 use std::f64::consts::PI;
@@ -27,40 +27,46 @@ fn main() {
     let floor = plane()
         .with_material(floor_material.clone())
         .with_transform(translation(0, -1, 0));
-    world.add_shape(floor);
 
     let water_material = Phong::default()
         .with_color(color(0.1, 0.1, 0.5))
         .with_ambient(0.0)
-        .with_diffuse(1.0)
-        .with_specular(0.5)
+        .with_diffuse(0.5)
+        .with_specular(0.9)
         .with_reflective(1.0)
         .with_transparency(1.0)
         .with_refractive_index(1.3);
+    world.add_shape(floor);
 
-    let water = plane()
-        .with_cast_shadow(false)
-        .with_material(water_material.clone())
-        .with_transform(translation(0, 0, 0));
-    world.add_shape(water);
+    let thing = planar_heightmap(-1000.0, 1000.0, -1.1, 1.1, -2.0, 1000.0, |x, z| {
+        let r = (x * x + z * z).sqrt();
+        -0.1 * (r * 10.0).sin() / r
+    })
+    .with_material(water_material);
+    world.add_shape(thing);
 
-    let sky = plane()
-        .with_transform(translation(0, 1000, 0))
+    let sky = sphere()
+        .with_transform(scaling(1000, 1000, 1000))
         .with_material(
             Phong::default()
-                .with_color(color(0.8, 0.8, 1))
+                .with_pattern(
+                    gradient_pattern(color(0.9, 0.9, 1), color(0.2, 0.2, 0.8))
+                        .with_transform(rotation_z(PI / 2.0)),
+                )
                 .with_ambient(1.0)
-                .with_diffuse(1.0)
+                .with_diffuse(0.0)
                 .with_specular(0.0),
         );
     world.add_shape(sky);
 
-    for i in -5 .. 5 {
+    for i in -5..5 {
         let x = i as f64 * 1.0 - 0.5;
         let z = 5.0 - i as f64 * 1.0;
         let s = i as f64 * 0.2;
         let right = cube()
-            .with_transform(translation(x, 0, z) * shearing(s, 0, 0, 0, 0, 0) * scaling(0.1, 1.0, 0.1))
+            .with_transform(
+                translation(x, 0, z) * shearing(s, 0, 0, 0, 0, 0) * scaling(0.1, 2.5, 0.1),
+            )
             .with_material(
                 Phong::default()
                     .with_color(color(1, 0.2, 0.3))
