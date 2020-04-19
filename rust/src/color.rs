@@ -1,4 +1,5 @@
-use std::ops::{Add, Mul, Sub};
+use std::iter::Sum;
+use std::ops::{Add, Div, Mul, Sub};
 
 pub const BLACK: Color = Color::new(0.0, 0.0, 0.0);
 pub const WHITE: Color = Color::new(1.0, 1.0, 1.0);
@@ -116,6 +117,19 @@ impl Mul<Color> for i32 {
     type Output = Color;
     fn mul(self, rhs: Color) -> Self::Output {
         Color::scale(&rhs, self as f64)
+    }
+}
+
+impl<T: Into<f64>> Div<T> for Color {
+    type Output = Color;
+    fn div(self, rhs: T) -> Self::Output {
+        Color::scale(&self, 1.0 / rhs.into())
+    }
+}
+
+impl Sum for Color {
+    fn sum<I: Iterator<Item = Color>>(iter: I) -> Color {
+        iter.fold(BLACK, |s, c| s + c)
     }
 }
 

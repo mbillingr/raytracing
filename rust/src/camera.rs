@@ -1,5 +1,5 @@
 use crate::canvas::Canvas;
-use crate::color::Color;
+use crate::color::{Color, BLACK};
 use crate::live_preview::{live_preview, Message};
 use crate::matrix::Matrix;
 use crate::ray::Ray;
@@ -23,7 +23,8 @@ pub struct Camera {
     half_width: f64,
     half_height: f64,
 
-    multisampling: u16,
+    pixel_allowed_standard_error: f64,
+    pixel_min_samples: u16,
 }
 
 impl Camera {
@@ -51,7 +52,8 @@ impl Camera {
             pixel_size,
             half_width,
             half_height,
-            multisampling: 1,
+            pixel_allowed_standard_error: 1e-1,
+            pixel_min_samples: 5,
         }
     }
 
@@ -89,8 +91,12 @@ impl Camera {
         self
     }
 
-    pub fn set_multisampling(&mut self, n: u16) {
-        self.multisampling = n;
+    pub fn set_allowed_standard_error(&mut self, se: f64) {
+        self.pixel_allowed_standard_error = se;
+    }
+
+    pub fn set_min_samples(&mut self, n: u16) {
+        self.pixel_min_samples = n;
     }
 
     pub fn pixel_size(&self) -> f64 {
@@ -153,22 +159,46 @@ impl Camera {
 
         coordinates
             .par_iter()
-            .filter_map(|&(x, y)| {
-                let mut color = None;
-                for n in 0..self.multisampling {
-                    let ray = self.ray_for_pixel(x, y, n > 0);
-                    color = match (color, world.trace(&ray)) {
-                        (None, None) => None,
-                        (Some(c), None) => Some(c),
-                        (None, Some(c)) => Some(c * (1.0 / self.multisampling as f64)),
-                        (Some(c1), Some(c2)) => Some(c1 + c2 * (1.0 / self.multisampling as f64)),
-                    };
+            .map(|&(x, y)| {
+                let c = world
+                    .trace(&self.ray_for_pixel(x, y, false))
+                    .unwrap_or(BLACK);
+                let mut color_sum_of_squares = c;
+                let mut color_sum = c;
+                let mut n = 1.0;
+
+                while n < self.pixel_min_samples as f64 {
+                    let c = world
+                        .trace(&self.ray_for_pixel(x, y, true))
+                        .unwrap_or(BLACK);
+                    color_sum = color_sum + c;
+                    color_sum_of_squares = color_sum_of_squares + c * c;
+                    n += 1.0;
                 }
-                color.map(|c| (x, y, c))
+
+                while color_variance_of_mean(n, color_sum, color_sum_of_squares)
+                    > self.pixel_allowed_standard_error * self.pixel_allowed_standard_error
+                {
+                    let c = world
+                        .trace(&self.ray_for_pixel(x, y, true))
+                        .unwrap_or(BLACK);
+                    color_sum = color_sum + c;
+                    color_sum_of_squares = color_sum_of_squares + c * c;
+                    n += 1.0;
+                }
+
+                (x, y, color_sum / dbg!(n))
             })
             .inspect(|&(x, y, color)| pixel_callback(x, y, color))
             .collect()
     }
+}
+
+fn color_variance_of_mean(n: f64, sum: Color, sos: Color) -> f64 {
+    let mean_rgb = sum / n;
+    let variance_rgb = sos / n - mean_rgb * mean_rgb;
+    let variance = (variance_rgb.red() + variance_rgb.green() + variance_rgb.blue()) / 3.0;
+    variance / n
 }
 
 #[cfg(test)]
@@ -239,11 +269,13 @@ mod tests {
     /// Rendering a world with the camera
     #[test]
     fn render() {
-        let c = Camera::new(11, 11, PI / 2.0).with_view_transform(
+        let mut c = Camera::new(11, 11, PI / 2.0).with_view_transform(
             point(0, 0, -5),
             point(0, 0, 0),
             vector(0, 1, 0),
         );
+        c.set_min_samples(1);
+        c.set_allowed_standard_error(1.0);
         let image = c.render(&World::default());
         assert_almost_eq!(image.get_pixel(5, 5), color(0.38066, 0.47583, 0.2855))
     }
