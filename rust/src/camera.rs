@@ -3,7 +3,7 @@ use crate::color::{Color, BLACK};
 use crate::live_preview::{live_preview, Message};
 use crate::matrix::Matrix;
 use crate::ray::Ray;
-use crate::tuple::{point, Point, Vector};
+use crate::tuple::{point, vector, Point, Vector};
 use crate::world::World;
 //use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
@@ -25,6 +25,9 @@ pub struct Camera {
 
     pixel_allowed_standard_error: f64,
     pixel_min_samples: u16,
+
+    focal_distance: f64,
+    aperture_size: f64,
 }
 
 impl Camera {
@@ -54,6 +57,8 @@ impl Camera {
             half_height,
             pixel_allowed_standard_error: 1e-1,
             pixel_min_samples: 5,
+            focal_distance: 3e100,
+            aperture_size: 0.0,
         }
     }
 
@@ -103,6 +108,14 @@ impl Camera {
         self.pixel_size
     }
 
+    pub fn set_aperture_size(&mut self, s: f64) {
+        self.aperture_size = s;
+    }
+
+    pub fn set_focal_distance(&mut self, d: f64) {
+        self.focal_distance = d;
+    }
+
     pub fn ray_for_pixel(&self, px: u32, py: u32, randomize: bool) -> Ray {
         let x_offset;
         let y_offset;
@@ -118,7 +131,24 @@ impl Camera {
         let world_y = self.half_height - y_offset;
         let pixel = self.inv_transform * point(world_x, world_y, -1.0);
         let origin = self.inv_transform * point(0.0, 0.0, 0.0);
-        Ray::new(origin, (pixel - origin).normalized())
+        let primary_ray = Ray::new(origin, (pixel - origin).normalized());
+
+        if self.aperture_size == 0.0 {
+            primary_ray
+        } else {
+            let focal_point = primary_ray.position(self.focal_distance);
+
+            let mut rnd = thread_rng();
+            let ap_pixel = pixel
+                + vector(
+                    (rnd.gen::<f64>() - 0.5) * self.aperture_size,
+                    (rnd.gen::<f64>() - 0.5) * self.aperture_size,
+                    0.0,
+                );
+            let secondary_ray = Ray::new(ap_pixel, (focal_point - ap_pixel).normalized());
+
+            secondary_ray
+        }
     }
 
     pub fn render(&self, world: &World) -> Canvas {
@@ -159,38 +189,46 @@ impl Camera {
 
         coordinates
             .par_iter()
-            .map(|&(x, y)| {
-                let c = world
-                    .trace(&self.ray_for_pixel(x, y, false))
-                    .unwrap_or(BLACK);
-                let mut color_sum_of_squares = c;
-                let mut color_sum = c;
-                let mut n = 1.0;
-
-                while n < self.pixel_min_samples as f64 {
-                    let c = world
-                        .trace(&self.ray_for_pixel(x, y, true))
-                        .unwrap_or(BLACK);
-                    color_sum = color_sum + c;
-                    color_sum_of_squares = color_sum_of_squares + c * c;
-                    n += 1.0;
-                }
-
-                while color_variance_of_mean(n, color_sum, color_sum_of_squares)
-                    > self.pixel_allowed_standard_error * self.pixel_allowed_standard_error
-                {
-                    let c = world
-                        .trace(&self.ray_for_pixel(x, y, true))
-                        .unwrap_or(BLACK);
-                    color_sum = color_sum + c;
-                    color_sum_of_squares = color_sum_of_squares + c * c;
-                    n += 1.0;
-                }
-
-                (x, y, color_sum / dbg!(n))
-            })
+            .map(|&(x, y)| (x, y, self.multisample(x, y, world)))
             .inspect(|&(x, y, color)| pixel_callback(x, y, color))
             .collect()
+    }
+
+    /*fn simple_sample(&self, x: u32, y: u32, world: &World) -> Color {
+        world
+            .trace(&self.ray_for_pixel(x, y, false))
+            .unwrap_or(BLACK)
+    }*/
+
+    fn multisample(&self, x: u32, y: u32, world: &World) -> Color {
+        let c = world
+            .trace(&self.ray_for_pixel(x, y, false))
+            .unwrap_or(BLACK);
+        let mut color_sum_of_squares = c;
+        let mut color_sum = c;
+        let mut n = 1.0;
+
+        while n < self.pixel_min_samples as f64 {
+            let c = world
+                .trace(&self.ray_for_pixel(x, y, true))
+                .unwrap_or(BLACK);
+            color_sum = color_sum + c;
+            color_sum_of_squares = color_sum_of_squares + c * c;
+            n += 1.0;
+        }
+
+        while color_variance_of_mean(n, color_sum, color_sum_of_squares)
+            > self.pixel_allowed_standard_error * self.pixel_allowed_standard_error
+        {
+            let c = world
+                .trace(&self.ray_for_pixel(x, y, true))
+                .unwrap_or(BLACK);
+            color_sum = color_sum + c;
+            color_sum_of_squares = color_sum_of_squares + c * c;
+            n += 1.0;
+        }
+
+        color_sum / n
     }
 }
 
