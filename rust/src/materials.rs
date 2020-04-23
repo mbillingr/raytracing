@@ -1,5 +1,5 @@
 use crate::color::{color, Color, BLACK};
-use crate::lights::PointLight;
+use crate::lights::LightRay;
 use crate::pattern::Pattern;
 use crate::shapes::Shape;
 use crate::tuple::{Point, Vector};
@@ -195,7 +195,7 @@ impl Phong {
     pub fn lighting(
         &self,
         obj: &Shape,
-        light: &PointLight,
+        light: LightRay,
         point: Point,
         eyev: Vector,
         normalv: Vector,
@@ -205,15 +205,15 @@ impl Phong {
             SurfaceColor::Flat(c) => *c,
             SurfaceColor::Pattern(p) => obj.pattern_at(p, point),
         };
-        let effective_color = color * light.intensity();
+
+        let effective_color = color * light.color;
         let ambient = effective_color * self.ambient();
 
         if in_shadow {
             return ambient;
         }
 
-        let lightv = (light.position() - point).normalized();
-        let light_dot_normal = lightv.dot(&normalv);
+        let light_dot_normal = light.direction.dot(&normalv);
 
         let diffuse;
         let specular;
@@ -224,13 +224,13 @@ impl Phong {
         } else {
             diffuse = effective_color * (self.diffuse() * light_dot_normal);
 
-            let reflectv = (-lightv).reflect(&normalv);
+            let reflectv = (-light.direction).reflect(&normalv);
             let reflect_dot_eye = reflectv.dot(&eyev);
 
             specular = if reflect_dot_eye <= 0.0 {
                 BLACK
             } else {
-                light.intensity() * (self.specular() * reflect_dot_eye.powf(self.shininess()))
+                light.color * (self.specular() * reflect_dot_eye.powf(self.shininess()))
             };
         }
 
@@ -243,6 +243,7 @@ mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
     use crate::color::color;
+    use crate::lights::Light;
     use crate::lights::PointLight;
     use crate::shapes::sphere;
     use crate::tuple::{point, vector};
@@ -269,7 +270,7 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, -10), color(1, 1, 1));
-        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, false);
+        let result = m.lighting(&sphere(), light.incoming_at(pos), pos, eyev, normalv, false);
         assert_almost_eq!(result, color(1.9, 1.9, 1.9));
     }
 
@@ -285,7 +286,7 @@ mod tests {
         );
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, -10), color(1, 1, 1));
-        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, false);
+        let result = m.lighting(&sphere(), light.incoming_at(pos), pos, eyev, normalv, false);
         assert_almost_eq!(result, color(1.0, 1.0, 1.0));
     }
 
@@ -297,7 +298,7 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 10, -10), color(1, 1, 1));
-        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, false);
+        let result = m.lighting(&sphere(), light.incoming_at(pos), pos, eyev, normalv, false);
         assert_almost_eq!(result, color(0.7364, 0.7364, 0.7364));
     }
 
@@ -313,7 +314,7 @@ mod tests {
         );
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 10, -10), color(1, 1, 1));
-        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, false);
+        let result = m.lighting(&sphere(), light.incoming_at(pos), pos, eyev, normalv, false);
         assert_almost_eq!(result, color(1.6364, 1.6364, 1.6364));
     }
 
@@ -325,7 +326,7 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, 10), color(1, 1, 1));
-        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, false);
+        let result = m.lighting(&sphere(), light.incoming_at(pos), pos, eyev, normalv, false);
         assert_almost_eq!(result, color(0.1, 0.1, 0.1));
     }
 
@@ -337,7 +338,7 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, -10), color(1, 1, 1));
-        let result = m.lighting(&sphere(), &light, pos, eyev, normalv, true);
+        let result = m.lighting(&sphere(), light.incoming_at(pos), pos, eyev, normalv, true);
         assert_almost_eq!(result, color(0.1, 0.1, 0.1));
     }
 }

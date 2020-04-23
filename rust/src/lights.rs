@@ -1,5 +1,23 @@
+use crate::approx_eq::ApproximateEq;
 use crate::color::Color;
-use crate::tuple::Point;
+use crate::tuple::{vector, Point, Vector};
+use rand::distributions::Distribution;
+use rand::thread_rng;
+use rand_distr::UnitSphere;
+use std::any::Any;
+
+pub trait Light: Sync + 'static {
+    fn as_any(&self) -> &dyn Any;
+    fn is_similar(&self, other: &dyn Light) -> bool;
+    fn incoming_at(&self, point: Point) -> LightRay;
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct LightRay {
+    pub origin: Point,
+    pub direction: Vector,
+    pub color: Color,
+}
 
 #[derive(Debug)]
 pub struct PointLight {
@@ -21,6 +39,89 @@ impl PointLight {
 
     pub fn intensity(&self) -> Color {
         self.intensity
+    }
+}
+
+impl Light for PointLight {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_similar(&self, other: &dyn Light) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .map(|other| {
+                self.position().approx_eq(&other.position())
+                    && self.intensity().approx_eq(&other.intensity())
+            })
+            .unwrap_or(false)
+    }
+
+    fn incoming_at(&self, point: Point) -> LightRay {
+        LightRay {
+            origin: self.position,
+            direction: (self.position - point).normalized(),
+            color: self.intensity,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SphereLight {
+    position: Point,
+    intensity: Color,
+    radius: f64,
+}
+
+impl SphereLight {
+    pub fn new(position: Point, radius: f64, intensity: Color) -> Self {
+        SphereLight {
+            position,
+            intensity,
+            radius,
+        }
+    }
+
+    pub fn position(&self) -> Point {
+        self.position
+    }
+
+    pub fn intensity(&self) -> Color {
+        self.intensity
+    }
+
+    pub fn radius(&self) -> f64 {
+        self.radius
+    }
+}
+
+impl Light for SphereLight {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_similar(&self, other: &dyn Light) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .map(|other| {
+                self.position().approx_eq(&other.position())
+                    && self.intensity().approx_eq(&other.intensity())
+                    && self.radius().approx_eq(&other.radius())
+            })
+            .unwrap_or(false)
+    }
+
+    fn incoming_at(&self, point: Point) -> LightRay {
+        let p: [f64; 3] = UnitSphere.sample(&mut thread_rng());
+        let origin = self.position + self.radius * vector(p[0], p[1], p[2]);
+
+        LightRay {
+            origin,
+            direction: (origin - point).normalized(),
+            color: self.intensity,
+        }
     }
 }
 

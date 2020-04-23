@@ -1,5 +1,5 @@
 use crate::color::{color, Color, BLACK};
-use crate::lights::PointLight;
+use crate::lights::{Light, LightRay, PointLight};
 use crate::materials::Phong;
 use crate::matrix::scaling;
 use crate::ray::{hit, Intersection, IntersectionState, Ray};
@@ -7,7 +7,7 @@ use crate::shapes::{sphere, Shape};
 use crate::tuple::{point, Point};
 
 pub struct World {
-    lights: Vec<PointLight>,
+    lights: Vec<Box<dyn Light>>,
     objects: Vec<Shape>,
     max_reflection_depth: u32,
 }
@@ -15,7 +15,10 @@ pub struct World {
 impl Default for World {
     fn default() -> Self {
         World::new(
-            vec![PointLight::new(point(-10, 10, -10), color(1, 1, 1))],
+            vec![Box::new(PointLight::new(
+                point(-10, 10, -10),
+                color(1, 1, 1),
+            ))],
             vec![
                 sphere().with_material(
                     Phong::default()
@@ -30,7 +33,7 @@ impl Default for World {
 }
 
 impl World {
-    pub fn new(lights: Vec<PointLight>, objects: Vec<Shape>) -> Self {
+    pub fn new(lights: Vec<Box<dyn Light>>, objects: Vec<Shape>) -> Self {
         World {
             lights,
             objects,
@@ -42,8 +45,8 @@ impl World {
         World::new(vec![], vec![])
     }
 
-    pub fn add_light(&mut self, light: PointLight) {
-        self.lights.push(light);
+    pub fn add_light(&mut self, light: impl Light) {
+        self.lights.push(Box::new(light));
     }
 
     pub fn add_shape(&mut self, shape: Shape) {
@@ -62,14 +65,15 @@ impl World {
     fn shade_hit(&self, comps: IntersectionState, remaining_bounces: u32) -> Color {
         let material = comps.obj.material();
         let surface = self.lights.iter().fold(BLACK, |color, light| {
+            let lighting = light.incoming_at(comps.over_point);
             color
                 + comps.obj.material().lighting(
                     &comps.obj,
-                    &light,
+                    lighting,
                     comps.point,
                     comps.eyev,
                     comps.normalv,
-                    self.is_shadowed(&light, comps.over_point),
+                    self.is_shadowed(&lighting, comps.over_point),
                 )
         });
 
@@ -111,10 +115,9 @@ impl World {
         xs
     }
 
-    pub fn is_shadowed(&self, light: &PointLight, p: Point) -> bool {
-        let direction = light.position() - p;
-        hit(&self.intersect_shadow(&Ray::new(p, direction.normalized())))
-            .map(|i| i.t < direction.len())
+    pub fn is_shadowed(&self, light: &LightRay, p: Point) -> bool {
+        hit(&self.intersect_shadow(&Ray::new(p, light.direction)))
+            .map(|i| i.t < (light.origin - p).len())
             .unwrap_or(false)
     }
 
@@ -179,7 +182,7 @@ mod tests {
     /// The default world
     #[test]
     fn default() {
-        let light = PointLight::new(point(-10, 10, -10), color(1, 1, 1));
+        let light: &dyn Light = &PointLight::new(point(-10, 10, -10), color(1, 1, 1));
         let s1 = sphere().with_material(
             Phong::default()
                 .with_color(color(0.8, 1.0, 0.6))
@@ -189,7 +192,7 @@ mod tests {
         let s2 = sphere().with_transform(scaling(0.5, 0.5, 0.5));
         let w = World::default();
         assert_eq!(w.lights.len(), 1);
-        assert!(w.lights.contains_similar(&light));
+        assert!(w.lights.contains_similar(light));
 
         assert_eq!(w.objects.len(), 2);
         assert!(w.objects.contains_similar(&s1));
@@ -228,7 +231,7 @@ mod tests {
         let r = Ray::new(point(0, 0, 0), vector(0, 0, 1));
         let shape = &w.objects[1];
         let i = Intersection::new(0.5, shape);
-        w.lights = vec![PointLight::new(point(0, 0.25, 0), color(1, 1, 1))];
+        w.lights = vec![Box::new(PointLight::new(point(0, 0.25, 0), color(1, 1, 1)))];
         let comps = i.prepare_computations(&r, &[i]);
         let c = w.shade_hit(comps, 0);
         assert_almost_eq!(c, color(0.90498, 0.90498, 0.90498));
@@ -270,7 +273,7 @@ mod tests {
     fn shadow1() {
         let w = World::default();
         let p = point(0, 10, 0);
-        assert!(!w.is_shadowed(&w.lights[0], p))
+        assert!(!w.is_shadowed(&w.lights[0].incoming_at(p), p))
     }
 
     /// There is shadow when an object is between point and light
@@ -278,7 +281,7 @@ mod tests {
     fn shadow2() {
         let w = World::default();
         let p = point(10, -10, 10);
-        assert!(w.is_shadowed(&w.lights[0], p))
+        assert!(w.is_shadowed(&w.lights[0].incoming_at(p), p))
     }
 
     /// There is no shadow if the object is behind the light
@@ -286,7 +289,7 @@ mod tests {
     fn shadow3() {
         let w = World::default();
         let p = point(-20, 20, -20);
-        assert!(!w.is_shadowed(&w.lights[0], p))
+        assert!(!w.is_shadowed(&w.lights[0].incoming_at(p), p))
     }
 
     /// There is no shadow if the object is behind the point
@@ -294,7 +297,7 @@ mod tests {
     fn shadow4() {
         let w = World::default();
         let p = point(-2, 2, -2);
-        assert!(!w.is_shadowed(&w.lights[0], p))
+        assert!(!w.is_shadowed(&w.lights[0].incoming_at(p), p))
     }
 
     /// There is no shadow when the object between point and light does not cast shadows
@@ -304,7 +307,7 @@ mod tests {
         w.objects[0].set_cast_shadow(false);
         w.objects[1].set_cast_shadow(false);
         let p = point(10, -10, 10);
-        assert!(!w.is_shadowed(&w.lights[0], p))
+        assert!(!w.is_shadowed(&w.lights[0].incoming_at(p), p))
     }
 
     /// Shading an intersection in shadow

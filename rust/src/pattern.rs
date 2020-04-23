@@ -83,7 +83,7 @@ mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
     use crate::color::{color, BLACK, WHITE};
-    use crate::lights::PointLight;
+    use crate::lights::{Light, PointLight};
     use crate::materials::Phong;
     use crate::matrix::{scaling, translation};
     use crate::shapes::sphere;
@@ -176,8 +176,24 @@ mod tests {
         let eyev = vector(0, 0, -1);
         let normalv = vector(0, 0, -1);
         let light = PointLight::new(point(0, 0, -10), WHITE);
-        let c1 = m.lighting(&sphere(), &light, point(0.9, 0, 0), eyev, normalv, false);
-        let c2 = m.lighting(&sphere(), &light, point(1.1, 0, 0), eyev, normalv, false);
+        let pos1 = point(0.9, 0, 0);
+        let pos2 = point(1.1, 0, 0);
+        let c1 = m.lighting(
+            &sphere(),
+            light.incoming_at(pos1),
+            pos1,
+            eyev,
+            normalv,
+            false,
+        );
+        let c2 = m.lighting(
+            &sphere(),
+            light.incoming_at(pos2),
+            pos2,
+            eyev,
+            normalv,
+            false,
+        );
         assert_almost_eq!(c1, WHITE);
         assert_almost_eq!(c2, BLACK);
     }

@@ -1,6 +1,6 @@
 use raytracing::canvas::Canvas;
 use raytracing::color::color;
-use raytracing::lights::PointLight;
+use raytracing::lights::{Light, PointLight};
 use raytracing::live_preview::{live_preview, Message};
 use raytracing::materials::Phong;
 use raytracing::ray::{hit, Intersection, Ray};
@@ -43,9 +43,14 @@ fn main() {
                 let p = ray.position(t);
                 let eyev = -ray.direction();
                 let normalv = obj.normal_at(p);
-                let color = obj
-                    .material()
-                    .lighting(&sphere(), &light, p, eyev, normalv, false);
+                let color = obj.material().lighting(
+                    &sphere(),
+                    light.incoming_at(p),
+                    p,
+                    eyev,
+                    normalv,
+                    false,
+                );
                 canvas.set_pixel(i, j, color);
                 tx.send(Message::set_pixel(i, j, color)).unwrap();
             }

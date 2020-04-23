@@ -1,5 +1,5 @@
 use crate::color::Color;
-use crate::lights::PointLight;
+use crate::lights::{Light, PointLight};
 use crate::materials::{Phong, SurfaceColor};
 use crate::matrix::Matrix;
 use crate::shapes::Shape;
@@ -10,6 +10,12 @@ pub trait ApproximateEq<T: ?Sized = Self> {
 }
 
 pub const EPSILON: f64 = 1e-5;
+
+impl<T: ?Sized + ApproximateEq<T>> ApproximateEq<&T> for T {
+    fn approx_eq(&self, other: &&T) -> bool {
+        self.approx_eq(&*other)
+    }
+}
 
 impl ApproximateEq for f64 {
     fn approx_eq(&self, other: &Self) -> bool {
@@ -83,9 +89,21 @@ impl ApproximateEq for PointLight {
     }
 }
 
+impl ApproximateEq for dyn Light {
+    fn approx_eq(&self, other: &Self) -> bool {
+        self.is_similar(other)
+    }
+}
+
 impl ApproximateEq for Shape {
     fn approx_eq(&self, other: &Self) -> bool {
         self.is_similar(other)
+    }
+}
+
+impl<T: ?Sized + ApproximateEq<T>> ApproximateEq<Box<T>> for T {
+    fn approx_eq(&self, other: &Box<T>) -> bool {
+        self.approx_eq(&*other)
     }
 }
 
