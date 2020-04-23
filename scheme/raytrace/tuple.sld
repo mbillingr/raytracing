@@ -13,7 +13,8 @@
           (scheme write)
           (scheme inexact)
           (raytrace generic)
-          (raytrace compare))
+          (raytrace compare)
+          (raytrace constants))
   (begin
     (define-record-type <tuple>
       (tuple x y z w)
@@ -67,7 +68,10 @@
       (sqrt (dot t t)))
 
     (define (normalize t)
-      (tuple-div t (magnitude t)))
+      (let ((m (magnitude t)))
+        (if (< m EPSILON)
+            t
+            (tuple-div t (magnitude t)))))
 
     (define (dot a b)
       (+ (* (tuple-x a) (tuple-x b))

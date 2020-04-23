@@ -1,6 +1,6 @@
 (define-library (raytrace ray)
   (export intersect intersection intersection-object intersection-t
-          intersections hit
+          intersections hit merge-intersections
           ray ray? ray-direction ray-origin ray-position ray-transform)
   (import (scheme base)
           (raytrace tuple)
@@ -29,6 +29,19 @@
     (define intersection cons)
     (define intersection-t car)
     (define intersection-object cdr)
+
+    (define (merge-intersections seq1 seq2)
+      (cond ((null? seq1) seq2)
+            ((null? seq2) seq1)
+            ((< (intersection-t (car seq2))
+                (intersection-t (car seq1)))
+             (cons (car seq2)
+                   (merge-intersections seq1
+                                        (cdr seq2))))
+            (else
+             (cons (car seq1)
+                   (merge-intersections (cdr seq1)
+                                        seq2)))))
 
     (define (hit intersections)
       (let loop ((h #f)

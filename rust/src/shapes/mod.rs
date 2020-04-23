@@ -1,9 +1,13 @@
+mod cone;
 mod cube;
+mod cylinder;
 pub mod planar_heightmap;
 mod plane;
 mod sphere;
 
+pub use cone::cone;
 pub use cube::cube;
+pub use cylinder::cylinder;
 pub use planar_heightmap::planar_heightmap;
 pub use plane::plane;
 pub use sphere::{glass_sphere, sphere};

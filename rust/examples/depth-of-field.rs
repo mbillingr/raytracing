@@ -72,7 +72,7 @@ fn main() {
                 .with_ambient(0.0)
                 .with_diffuse(0.0)
                 .with_specular(1.0)
-                .with_reflective(1.0)
+                .with_reflective(1.0),
         );
     world.add_shape(middle);
 

@@ -42,8 +42,8 @@
         (let loop ((objs objects))
           (if (null? objs)
               '()
-              (merge-sorted (loop (cdr objs))
-                            ((car objs) 'intersect ray)))))
+              (merge-intersections (loop (cdr objs))
+                                   ((car objs) 'intersect ray)))))
 
       (define (shade-hit comps remaining-bounces)
         (let loop ((l lights))
@@ -129,19 +129,6 @@
               (else (error "unknown method (world m ...)" m))))
 
       dispatch)
-
-    (define (merge-sorted seq1 seq2)
-      (cond ((null? seq1) seq2)
-            ((null? seq2) seq1)
-            ((< (intersection-t (car seq2))
-                (intersection-t (car seq1)))
-             (cons (car seq2)
-                   (merge-sorted seq1
-                                 (cdr seq2))))
-            (else
-             (cons (car seq1)
-                   (merge-sorted (cdr seq1)
-                                 seq2)))))
 
     (define (prepare-computations* i ray xs)
       (let* ((t (intersection-t i))

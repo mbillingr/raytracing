@@ -273,3 +273,149 @@
         ((c 'normal-at (point  0.4  0.4 -1.0)) == (vec 0 0 -1))
         ((c 'normal-at (point 1 1 1)) == (vec 1 0 0))
         ((c 'normal-at (point -1 -1 -1)) == (vec -1 0 0))))
+
+;; cylinder shape
+;; ===========================================================================
+
+(let ((outline
+        (lambda (origin direction)
+          (test "A ray misses a cylinder"
+            (given (cyl <- (cylinder))
+                   (direction <- (normalize direction))
+                   (r <- (ray origin direction)))
+            (when (xs <- (cyl 'intersect r)))
+            (then ((length xs) == 0))))))
+  (outline (point 1 0 0) (vec 0 1 0))
+  (outline (point 0 0 0) (vec 0 1 0))
+  (outline (point 0 0 -5) (vec 1 1 1)))
+
+(let ((outline
+        (lambda (origin direction t0 t1)
+          (test "A ray strikes a cylinder"
+            (given (cyl <- (cylinder))
+                   (direction <- (normalize direction))
+                   (r <- (ray origin direction)))
+            (when (xs <- (cyl 'intersect r)))
+            (then ((length xs) == 2)
+                  ((intersection-t (car xs)) == t0)
+                  ((intersection-t (cadr xs)) == t1))))))
+  (outline (point 1 0 -5) (vec 0 0 1) 5 5)
+  (outline (point 0 0 -5) (vec 0 0 1) 4 6)
+  (outline (point 0.5 0 -5) (vec 0.1 1 1) 6.80798 7.08872))
+
+(let ((outline
+        (lambda (point normal)
+          (test "Normal vector on a cylinder"
+            (given (cyl <- (cylinder))
+                   (n <- (cyl 'normal-at point)))
+            (then (n == normal))))))
+  (outline (point 1 0 0) (vec 1 0 0))
+  (outline (point 0 5 -1) (vec 0 0 -1))
+  (outline (point 0 -2 1) (vec 0 0 1))
+  (outline (point -1 1 0) (vec -1 0 0)))
+
+(test "The default minimum and maximum for a cylinder"
+  (given (cyl <- (cylinder)))
+  (then ((cyl 'minimum) == -inf.0)
+        ((cyl 'maximum) == +inf.0)))
+
+(let ((outline
+        (lambda (origin direction count)
+          (test "Intersecting a constrained cylinder"
+            (given (cyl <- (cylinder))
+                   (r <- (ray origin (normalize direction))))
+            (when (cyl 'set-minimum! 1)
+                  (cyl 'set-maximum! 2)
+                  (xs <- (cyl 'intersect r)))
+            (then ((length xs) == count))))))
+  (outline (point 0 1.5 0) (vec 0.1 1 0) 0)
+  (outline (point 0 3 -5) (vec 0 0 1) 0)
+  (outline (point 0 0 -5) (vec 0 0 1) 0)
+  (outline (point 0 2 -5) (vec 0 0 1) 0)
+  (outline (point 0 1 -5) (vec 0 0 1) 0)
+  (outline (point 0 1.5 -2) (vec 0 0 1) 2))
+
+(test "The default closed value for a cylinder"
+  (given (cyl <- (cylinder)))
+  (then ((cyl 'closed?) == #f)))
+
+(let ((outline
+        (lambda (origin direction count)
+          (test "Intersecting a closed cylinder"
+            (given (cyl <- (cylinder))
+                   (r <- (ray origin (normalize direction))))
+            (when (cyl 'set-minimum! 1)
+                  (cyl 'set-maximum! 2)
+                  (cyl 'set-closed! #t)
+                  (xs <- (cyl 'intersect r)))
+            (then ((length xs) == count))))))
+  (outline (point 0 3 0) (vec 0 -1 0) 2)
+  (outline (point 0 3 -2) (vec 0 -1 2) 2)
+  (outline (point 0 4 -2) (vec 0 -1 1) 2)  ; corner case
+  (outline (point 0 0 -2) (vec 0 1 2) 2)
+  (outline (point 0 -1 -2) (vec 0 1 1) 2)) ; corner case
+
+(let ((outline
+        (lambda (point normal)
+          (test "Normal vector on a cylinder's end caps"
+            (given (cyl <- (cylinder)))
+            (when (cyl 'set-minimum! 1)
+                  (cyl 'set-maximum! 2)
+                  (cyl 'set-closed! #t)
+                  (n <- (cyl 'normal-at point)))
+            (then (n == normal))))))
+  (outline (point 0 1 0) (vec 0 -1 0))
+  (outline (point 0.5 1 0) (vec 0 -1 0))
+  (outline (point 0 1 0.5) (vec 0 -1 0))
+  (outline (point 0 2 0) (vec 0 1 0))
+  (outline (point 0.5 2 0) (vec 0 1 0))
+  (outline (point 0 2 0.5) (vec 0 1 0)))
+
+;; cone shape
+;; ===========================================================================
+
+(let ((outline
+        (lambda (origin direction t0 t1)
+          (test "Intersecting a cone with a ray"
+            (given (shape <- (cone))
+                   (direction <- (normalize direction))
+                   (r <- (ray origin direction)))
+            (when (xs <- (shape 'intersect r)))
+            (then ((length xs) == 2)
+                  ((intersection-t (car xs)) == t0)
+                  ((intersection-t (cadr xs)) == t1))))))
+  (outline (point 0 0 -5) (vec 0 0 1) 5 5)
+  (outline (point 0 0 -5) (vec 1 1 1) 8.66025 8.66025)
+  (outline (point 1 1 -5) (vec -0.5 -1 1) 4.55006 49.44994))
+
+(test "Intersecting a cone with a ray parallel to one of its halves"
+  (given (shape <- (cone))
+         (direction <- (normalize (vec 0 1 1)))
+         (r <- (ray (point 0 0 -1) direction)))
+  (when (xs <- (shape 'intersect r)))
+  (then ((length xs) == 1)
+        ((intersection-t (car xs)) == 0.35355)))
+
+(let ((outline
+        (lambda (origin direction count)
+          (test "Intersecting a cone's end caps"
+            (given (shape <- (cone))
+                   (r <- (ray origin (normalize direction))))
+            (when (shape 'set-minimum! -0.5)
+                  (shape 'set-maximum! 0.5)
+                  (shape 'set-closed! #t)
+                  (xs <- (shape 'intersect r)))
+            (then ((length xs) == count))))))
+  (outline (point 0 0 -5) (vec 0 1 0) 0)
+  (outline (point 0 0 -0.25) (vec 0 1 1) 2)
+  (outline (point 0 0 -0.25) (vec 0 1 0) 4))
+
+(let ((outline
+        (lambda (point normal)
+          (test "Normal vector on a cone"
+            (given (g <- (cone-geometry)))
+            (when (n <- (g 'normal-at point)))
+            (then (n == normal))))))
+  (outline (point 0 0 0) (vec 0 0 0))
+  (outline (point 1 1 1) (vec 1 (- SQRT2) 1))
+  (outline (point -1 -1 0) (vec -1 1 0)))

@@ -13,7 +13,11 @@ pub const EPSILON: f64 = 1e-5;
 
 impl ApproximateEq for f64 {
     fn approx_eq(&self, other: &Self) -> bool {
-        (self - other).abs() < EPSILON
+        if self.is_infinite() {
+            other.is_infinite() && self.signum() == other.signum()
+        } else {
+            (self - other).abs() < EPSILON
+        }
     }
 }
 

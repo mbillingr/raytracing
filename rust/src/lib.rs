@@ -9,6 +9,7 @@ pub mod color;
 pub mod lights;
 pub mod live_preview;
 pub mod materials;
+pub mod math;
 pub mod matrix;
 pub mod pattern;
 pub mod shapes;
