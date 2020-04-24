@@ -1,9 +1,9 @@
 use raytracing::camera::Camera;
 use raytracing::color::color;
-use raytracing::lights::{SphereLight};
+use raytracing::lights::SphereLight;
 use raytracing::materials::Phong;
-use raytracing::matrix::translation;
-use raytracing::shapes::{cube, plane};
+use raytracing::matrix::{scaling, translation};
+use raytracing::shapes::{cube, plane, sphere};
 use raytracing::tuple::{point, vector};
 use raytracing::world::World;
 use std::f64::consts::PI;
@@ -13,10 +13,23 @@ fn main() {
     let mut world = World::empty();
 
     world.add_light(SphereLight::new(
-        point(-10, 7, -10),
-        1.0,
-        color(1.0, 1.0, 1.0),
+        point(-5, 2, -5),
+        2.0,
+        color(1.5, 1.5, 1.5),
     ));
+
+    let middle = sphere()
+        .with_transform(translation(-5, 2, -5) * scaling(2, 2, 2))
+        .with_material(
+            Phong::default()
+                .with_rgb(1.0, 1.0, 1.0)
+                .with_ambient(1.0)
+                .with_diffuse(0.0)
+                .with_specular(0.0)
+                .with_reflective(0.0),
+        )
+        .with_cast_shadow(false);
+    world.add_shape(middle);
 
     let floor_material = Phong::default()
         .with_color(color(1.0, 1.0, 1.0))
@@ -40,7 +53,7 @@ fn main() {
     world.add_shape(middle);
 
     let mut camera = Camera::new(900, 450, PI / 3.0).with_view_transform(
-        point(3, 5, -6.5),
+        point(9, 15, -19),
         point(1.5, 1, 1),
         vector(0, 1, 0),
     );
