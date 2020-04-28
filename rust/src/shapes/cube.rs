@@ -6,7 +6,7 @@ pub fn cube() -> Shape {
     Shape::new(Cube::new())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Cube;
 
 impl Cube {
@@ -16,6 +16,10 @@ impl Cube {
 }
 
 impl Geometry for Cube {
+    fn duplicate(&self) -> Box<dyn Geometry> {
+        Box::new(*self)
+    }
+
     fn is_similar(&self, other: &dyn Geometry) -> bool {
         other.as_any().downcast_ref::<Cube>().is_some()
     }

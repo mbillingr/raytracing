@@ -166,15 +166,18 @@ fn sqr(x: f64) -> f64 {
     x * x
 }
 
+pub fn sort_intersections(mut xs: Vec<Intersection>) -> Vec<Intersection> {
+    xs.sort_unstable_by(|a, b| {
+        a.t.partial_cmp(&b.t)
+            .expect("Unable to compare intersection distances")
+    });
+    xs
+}
+
 #[macro_export]
 macro_rules! intersections {
     ($($x:expr),* $(,)?) => {{
-        let mut xs: Vec<Intersection> = vec![$($x),*];
-        xs.sort_unstable_by(|a, b| {
-            a.t.partial_cmp(&b.t)
-                .expect("Unable to compare intersection distances")
-        });
-        xs
+        crate::ray::sort_intersections(vec![$($x),*])
     }}
 }
 

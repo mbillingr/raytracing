@@ -419,3 +419,93 @@
   (outline (point 0 0 0) (vec 0 0 0))
   (outline (point 1 1 1) (vec 1 (- SQRT2) 1))
   (outline (point -1 -1 0) (vec -1 1 0)))
+
+;; shape group
+;; ===========================================================================
+
+(test "Creating a new group"
+  (given (g <- (group)))
+  (then ((g 'transform) == (identity-transform))
+        ((g 'shapes) == '())))
+
+(test "A shape has a parent attribute"
+  (given (s <- (test-shape)))
+  (then ((s 'parent) == #f)))
+
+(test "Adding a child to a group"
+  (given (g <- (group))
+         (s <- (test-shape)))
+  (when (g 'add-children! s))
+  (then ((g 'transform) == (identity-transform))
+        ((g 'shapes) == (list s))
+        ((s 'parent) == g)))
+
+(test "Intersecting a ray with an empty group"
+  (given (g <- (group))
+         (r <- (ray (point 0 0 0) (vec 0 0 1)))
+         (xs <- (g 'local-intersect r)))
+  (then ((length xs) == 0)))
+
+(test "Intersecting a ray with a nonempty group"
+  (given (g <- (group))
+         (s1 <- (sphere))
+         (s2 <- (sphere))
+         (s3 <- (sphere))
+         (r <- (ray (point 0 0 0) (vec 0 0 1))))
+  (when (s2 'set-transform! (translation 0 0 -3))
+        (s3 'set-transform! (translation 5 0 0))
+        (g 'add-children! s1 s2 s3)
+        (xs <- (g 'local-intersect r)))
+  (then ((length xs) == 4)
+        ((intersection-object (car xs)) == s2)
+        ((intersection-object (cadr xs)) == s2)
+        ((intersection-object (car (cddr xs))) == s1)
+        ((intersection-object (cadr (cddr xs))) == s1)))
+
+(test "Intersecting a transformed group"
+  (given (g <- (group))
+         (s <- (sphere))
+         (r <- (ray (point 10 0 -10) (vec 0 0 1))))
+  (when (g 'set-transform! (scaling 2 2 2))
+        (s 'set-transform! (translation 5 0 0))
+        (g 'add-children! s)
+        (xs <- (g 'intersect r)))
+  (then ((length xs) == 2)))
+
+(test "Converting a point from world to object space"
+  (given (g1 <- (group))
+         (g2 <- (group))
+         (s <- (sphere))
+         (r <- (ray (point 10 0 -10) (vec 0 0 1))))
+  (when (g1 'set-transform! (rotation-y (/ PI 2)))
+        (g2 'set-transform! (scaling 2 2 2))
+        (s 'set-transform! (translation 5 0 0))
+        (g1 'add-children! g2)
+        (g2 'add-children! s))
+  (then ((s 'world-to-object (point -2 0 -10)) == (point 0 0 -1))))
+
+(test "Converting a normal from object to world space"
+  (given (g1 <- (group))
+         (g2 <- (group))
+         (s <- (sphere))
+         (r <- (ray (point 10 0 -10) (vec 0 0 1))))
+  (when (g1 'set-transform! (rotation-y (/ PI 2)))
+        (g2 'set-transform! (scaling 1 2 3))
+        (s 'set-transform! (translation 5 0 0))
+        (g1 'add-children! g2)
+        (g2 'add-children! s)
+        (n <- (s 'normal-to-world (vec SQRT3/3 SQRT3/3 SQRT3/3))))
+  (then (n == (vec 0.28571 0.42857 -0.85714))))
+
+(test "Finding the normal on a child object"
+  (given (g1 <- (group))
+         (g2 <- (group))
+         (s <- (sphere))
+         (r <- (ray (point 10 0 -10) (vec 0 0 1))))
+  (when (g1 'set-transform! (rotation-y (/ PI 2)))
+        (g2 'set-transform! (scaling 1 2 3))
+        (s 'set-transform! (translation 5 0 0))
+        (g1 'add-children! g2)
+        (g2 'add-children! s)
+        (n <- (s 'normal-at (point 1.7321 1.1547 -5.5774))))
+  (then (n == (vec 0.28570 0.42854 -0.85716))))

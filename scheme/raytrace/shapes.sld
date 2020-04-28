@@ -1,5 +1,6 @@
 (define-library (raytrace shapes)
   (export make-shape  glass-sphere
+          group
           cone cone-geometry
           cube cube-geometry
           cylinder cylinder-geometry
@@ -15,6 +16,9 @@
           (raytrace constants)
           (raytrace compare))
   (begin
+    (define (group)
+      (make-group))
+
     (define (sphere)
       (make-shape (sphere-geometry)))
 
@@ -40,20 +44,32 @@
       (define transform (identity-transform))
       (define inv-transform (identity-transform))
       (define material (default-material))
+      (define parent #f)
 
       (define (intersect r)
         (geometry 'intersect dispatch (ray-transform r inv-transform)))
 
       (define (normal-at world-p)
-        (let* ((obj-p (m4* inv-transform world-p))
-               (obj-n (geometry 'normal-at obj-p))
-               (world-n (m4* (m4-transpose inv-transform)
-                             obj-n)))
-          (tuple-set-w! world-n 0)
-          (normalize world-n)))
+        (normal-to-world
+          (geometry 'normal-at
+                    (world-to-object world-p))))
 
       (define (pattern-at pattern world-p)
-        (pattern 'at (m4* inv-transform world-p)))
+        (pattern 'at (world-to-object world-p)))
+
+      (define (world-to-object point)
+        (m4* inv-transform
+             (if parent
+                 (parent 'world-to-object point)
+                 point)))
+
+      (define (normal-to-world normal)
+        (let ((n (m4* (m4-transpose inv-transform) normal)))
+          (tuple-set-w! n 0)
+          (set! n (normalize n))
+          (if parent
+              (parent 'normal-to-world n)
+              n)))
 
       (define (dispatch m . args)
         (cond ((eq? m 'intersect) (intersect (car args)))
@@ -61,12 +77,70 @@
               ((eq? m 'transform) transform)
               ((eq? m 'material) material)
               ((eq? m 'pattern-at) (pattern-at (car args) (cadr args)))
+              ((eq? m 'world-to-object) (world-to-object (car args)))
+              ((eq? m 'normal-to-world) (normal-to-world (car args)))
+              ((eq? m 'local-intersect) (geometry 'intersect dispatch (car args)))
+              ((eq? m 'parent) parent)
               ((eq? m 'set-transform!)
                (set! transform (car args))
                (set! inv-transform (m4-inverse (car args))))
               ((eq? m 'set-material!) (set! material (car args)))
+              ((eq? m 'set-parent!) (set! parent (car args)))
               (else (apply geometry m args))))
 
+      dispatch)
+
+    (define (make-group)
+      (define transform (identity-transform))
+      (define inv-transform (identity-transform))
+      (define shapes '())
+      (define parent #f)
+
+      (define (add-children child*)
+        (if (null? child*)
+            'done
+            (let ((child (car child*)))
+              (child 'set-parent! dispatch)
+              (set! shapes (cons child shapes))
+              (add-children (cdr child*)))))
+
+      (define (local-intersect r)
+        (let loop ((s shapes)
+                   (xs (intersections)))
+          (if (null? s)
+              xs
+              (loop (cdr s)
+                    (merge-intersections xs ((car s) 'intersect r))))))
+
+      (define (world-to-object point)
+        (m4* inv-transform
+             (if parent
+                 (parent 'world-to-object point)
+                 point)))
+
+      (define (normal-to-world normal)
+        (let ((n (m4* (m4-transpose inv-transform) normal)))
+          (tuple-set-w! n 0)
+          (set! n (normalize n))
+          (if parent
+              (parent 'normal-to-world n)
+              n)))
+
+      (define (dispatch m . args)
+        (cond ((eq? m 'intersect) (local-intersect (ray-transform (car args) inv-transform)))
+              ;((eq? m 'normal-at) (normal-at (car args)))
+              ((eq? m 'world-to-object) (world-to-object (car args)))
+              ((eq? m 'normal-to-world) (normal-to-world (car args)))
+              ((eq? m 'transform) transform)
+              ((eq? m 'local-intersect) (local-intersect (car args)))
+              ((eq? m 'parent) parent)
+              ((eq? m 'set-transform!)
+               (set! transform (car args))
+               (set! inv-transform (m4-inverse (car args))))
+              ((eq? m 'shapes) shapes)
+              ((eq? m 'add-children!) (add-children args))
+              ((eq? m 'set-parent!) (set! parent (car args)))
+              (else (error "unknown method (group m ...)" m))))
       dispatch)
 
     (define (sphere-geometry)

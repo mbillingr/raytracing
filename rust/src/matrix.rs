@@ -1,3 +1,4 @@
+use crate::approx_eq::ApproximateEq;
 use crate::tuple::{point, vector, Point, Vector};
 use quaternion::Quaternion;
 use std::ops::{Index, Mul};
@@ -118,6 +119,25 @@ impl Matrix {
             ],
             Matrix::Scale(s) => Matrix::Scale(s),
             Matrix::Rotate(q) => Matrix::Rotate(quaternion::conj(q)),
+        }
+    }
+
+    pub fn is_identity(&self) -> bool {
+        match self {
+            Matrix::Identity => true,
+            Matrix::Full(_) | Matrix::Transposed(_) => self.approx_eq(&matrix![
+                1.0, 0.0, 0.0, 0.0;
+                0.0, 1.0, 0.0, 0.0;
+                0.0, 0.0, 1.0, 0.0;
+                0.0, 0.0, 0.0, 1.0;
+            ]),
+            Matrix::Translate([x, y, z]) => {
+                x.approx_eq(&0.0) && y.approx_eq(&0.0) && z.approx_eq(&0.0)
+            }
+            Matrix::Scale([x, y, z]) => x.approx_eq(&1.0) && y.approx_eq(&1.0) && z.approx_eq(&1.0),
+            Matrix::Rotate((r, [i, j, k])) => {
+                r.approx_eq(&1.0) && i.approx_eq(&0.0) && j.approx_eq(&0.0) && k.approx_eq(&0.0)
+            }
         }
     }
 

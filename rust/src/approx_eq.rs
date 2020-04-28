@@ -2,7 +2,7 @@ use crate::color::Color;
 use crate::lights::{Light, PointLight};
 use crate::materials::{Phong, SurfaceColor};
 use crate::matrix::Matrix;
-use crate::shapes::Shape;
+use crate::shapes::{is_group_similar_to_shape, Group, SceneItem, Shape};
 use crate::tuple::{Point, Vector};
 
 pub trait ApproximateEq<T: ?Sized = Self> {
@@ -98,6 +98,50 @@ impl ApproximateEq for dyn Light {
 impl ApproximateEq for Shape {
     fn approx_eq(&self, other: &Self) -> bool {
         self.is_similar(other)
+    }
+}
+
+impl ApproximateEq for Group {
+    fn approx_eq(&self, other: &Self) -> bool {
+        self.is_similar(other)
+    }
+}
+
+impl ApproximateEq for SceneItem {
+    fn approx_eq(&self, other: &Self) -> bool {
+        self.is_similar(other)
+    }
+}
+
+impl ApproximateEq<Shape> for Group {
+    fn approx_eq(&self, other: &Shape) -> bool {
+        is_group_similar_to_shape(self, other)
+    }
+}
+
+impl ApproximateEq<Group> for Shape {
+    fn approx_eq(&self, other: &Group) -> bool {
+        is_group_similar_to_shape(other, self)
+    }
+}
+
+impl ApproximateEq<Shape> for SceneItem {
+    fn approx_eq(&self, other: &Shape) -> bool {
+        use SceneItem::*;
+        match self {
+            Primitive(a) => a.approx_eq(other),
+            Compound(g) => g.approx_eq(other),
+        }
+    }
+}
+
+impl ApproximateEq<SceneItem> for Shape {
+    fn approx_eq(&self, other: &SceneItem) -> bool {
+        use SceneItem::*;
+        match other {
+            Primitive(b) => self.approx_eq(b),
+            Compound(g) => self.approx_eq(g),
+        }
     }
 }
 

@@ -2,6 +2,7 @@ use crate::approx_eq::EPSILON;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
 use crate::tuple::{point, vector, Point, Vector};
+use std::sync::Arc;
 
 pub fn planar_heightmap(
     xmin: f64,
@@ -20,8 +21,9 @@ pub fn planar_heightmap(
     )
 }
 
+#[derive(Clone)]
 pub struct PlanarHeightmap {
-    height_func: Box<dyn Sync + Send + Fn(f64, f64) -> f64>,
+    height_func: Arc<dyn Sync + Send + Fn(f64, f64) -> f64>,
     detail_scale: f64,
     min_bound: Point,
     max_bound: Point,
@@ -30,7 +32,7 @@ pub struct PlanarHeightmap {
 impl PlanarHeightmap {
     pub fn new(func: impl 'static + Sync + Send + Fn(f64, f64) -> f64) -> Self {
         PlanarHeightmap {
-            height_func: Box::new(func),
+            height_func: Arc::new(func),
             detail_scale: 0.1,
             min_bound: point(-1, -1, -1),
             max_bound: point(1, 1, 1),
@@ -105,6 +107,10 @@ impl std::fmt::Debug for PlanarHeightmap {
 }
 
 impl Geometry for PlanarHeightmap {
+    fn duplicate(&self) -> Box<dyn Geometry> {
+        Box::new(self.clone())
+    }
+
     fn is_similar(&self, other: &dyn Geometry) -> bool {
         other.as_any().downcast_ref::<PlanarHeightmap>().is_some()
     }

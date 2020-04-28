@@ -17,24 +17,137 @@ use crate::color::Color;
 use crate::materials::Phong;
 use crate::matrix::Matrix;
 use crate::pattern::Pattern;
-use crate::ray::{Intersection, Ray};
+use crate::ray::{sort_intersections, Intersection, Ray};
 use crate::tuple::{Point, Vector};
 use std::any::Any;
 
+pub fn group() -> Group {
+    Group::default()
+}
+
 pub trait Geometry: 'static + AsAny + std::fmt::Debug + Sync {
+    fn duplicate(&self) -> Box<dyn Geometry>;
     //fn as_any(&self) -> &dyn Any;// { self }
     fn is_similar(&self, other: &dyn Geometry) -> bool;
     fn intersect<'a>(&self, obj: &'a Shape, local_ray: &Ray) -> Vec<Intersection<'a>>;
     fn normal_at(&self, local_point: Point) -> Vector;
 }
 
+#[derive(Debug, Clone)]
+pub enum SceneItem {
+    Primitive(Shape),
+    Compound(Group),
+}
+
+impl SceneItem {
+    pub fn as_shape(&self) -> Option<&Shape> {
+        match self {
+            SceneItem::Primitive(shape) => Some(shape),
+            _ => None,
+        }
+    }
+
+    pub fn as_shape_mut(&mut self) -> Option<&mut Shape> {
+        match self {
+            SceneItem::Primitive(shape) => Some(shape),
+            _ => None,
+        }
+    }
+    pub fn as_group(&self) -> Option<&Group> {
+        match self {
+            SceneItem::Compound(group) => Some(group),
+            _ => None,
+        }
+    }
+
+    pub fn as_group_shape_mut(&mut self) -> Option<&mut Group> {
+        match self {
+            SceneItem::Compound(group) => Some(group),
+            _ => None,
+        }
+    }
+
+    pub fn intersect(&self, world_ray: &Ray) -> Vec<Intersection> {
+        match self {
+            SceneItem::Primitive(shape) => shape.intersect(world_ray),
+            SceneItem::Compound(group) => group.intersect(world_ray),
+        }
+    }
+
+    pub fn cast_shadow(&self) -> bool {
+        match self {
+            SceneItem::Primitive(shape) => shape.cast_shadow(),
+            SceneItem::Compound(group) => group.cast_shadow,
+        }
+    }
+
+    pub fn update_transform(&mut self, t: Matrix) {
+        match self {
+            SceneItem::Primitive(shape) => shape.update_transform(t),
+            SceneItem::Compound(group) => group.update_transform(t),
+        }
+    }
+
+    pub fn is_similar(&self, other: &Self) -> bool {
+        use SceneItem::*;
+        match (self, other) {
+            (Primitive(a), Primitive(b)) => a.is_similar(b),
+            (Compound(a), Compound(b)) => a.is_similar(b),
+            (Compound(g), Primitive(s)) | (Primitive(s), Compound(g)) => {
+                is_group_similar_to_shape(g, s)
+            }
+        }
+    }
+
+    /*pub fn set_world_transform(&mut self, t: Matrix) {
+        match self {
+            SceneItem::Primitive(shape) => shape.set_world_transform(t),
+        }
+    }*/
+}
+
+pub fn is_group_similar_to_shape(g: &Group, s: &Shape) -> bool {
+    g.items.len() == 1
+        && g.transform.is_identity()
+        && match &g.items[0] {
+            SceneItem::Primitive(gs) => gs.is_similar(s),
+            SceneItem::Compound(gg) => is_group_similar_to_shape(gg, s),
+        }
+}
+
+impl From<Shape> for SceneItem {
+    fn from(shape: Shape) -> SceneItem {
+        SceneItem::Primitive(shape)
+    }
+}
+
+impl From<Group> for SceneItem {
+    fn from(group: Group) -> SceneItem {
+        SceneItem::Compound(group)
+    }
+}
+
 #[derive(Debug)]
 pub struct Shape {
     material: Phong,
     transform: Matrix,
-    inv_transform: Matrix,
+    cumulative_transform: Matrix,
+    inv_cumulative_transform: Matrix,
     cast_shadow: bool,
     geometry: Box<dyn Geometry>,
+}
+
+impl Clone for Shape {
+    fn clone(&self) -> Self {
+        Shape {
+            material: self.material.clone(),
+            transform: self.transform,
+            cumulative_transform: self.cumulative_transform,
+            inv_cumulative_transform: self.inv_cumulative_transform,
+            cast_shadow: self.cast_shadow,
+            geometry: self.geometry.duplicate(),
+        }
+    }
 }
 
 impl Shape {
@@ -42,7 +155,8 @@ impl Shape {
         Shape {
             material: Phong::default(),
             transform: Matrix::identity(),
-            inv_transform: Matrix::identity(),
+            cumulative_transform: Matrix::identity(),
+            inv_cumulative_transform: Matrix::identity(),
             cast_shadow: true,
             geometry: Box::new(geometry),
         }
@@ -54,14 +168,13 @@ impl Shape {
     }
 
     pub fn normal_at(&self, world_point: Point) -> Vector {
-        let obj_point = *self.inv_transform() * world_point;
+        let obj_point = self.world_to_object(world_point);
         let obj_normal = self.geometry.normal_at(obj_point);
-        let world_normal = self.inv_transform().transpose() * obj_normal;
-        Vector::new(world_normal.x(), world_normal.y(), world_normal.z()).normalized()
+        self.normal_to_world(obj_normal)
     }
 
     pub fn pattern_at(&self, pattern: &Pattern, world_point: Point) -> Color {
-        pattern.at(*self.inv_transform() * world_point)
+        pattern.at(self.world_to_object(world_point))
     }
 
     pub fn with_material(self, material: Phong) -> Self {
@@ -71,7 +184,8 @@ impl Shape {
     pub fn with_transform(self, transform: Matrix) -> Self {
         Shape {
             transform,
-            inv_transform: transform.inverse(),
+            cumulative_transform: transform,
+            inv_cumulative_transform: transform.inverse(),
             ..self
         }
     }
@@ -89,12 +203,27 @@ impl Shape {
     }
 
     pub fn inv_transform(&self) -> &Matrix {
-        &self.inv_transform
+        &self.inv_cumulative_transform
     }
 
     pub fn set_transform(&mut self, t: Matrix) {
         self.transform = t;
-        self.inv_transform = t.inverse();
+        self.cumulative_transform = t;
+        self.inv_cumulative_transform = t.inverse();
+    }
+
+    pub fn update_transform(&mut self, t: Matrix) {
+        self.cumulative_transform = t * self.transform;
+        self.inv_cumulative_transform = self.cumulative_transform.inverse();
+    }
+
+    pub fn world_to_object(&self, p: Point) -> Point {
+        self.inv_cumulative_transform * p
+    }
+
+    pub fn normal_to_world(&self, obj_normal: Vector) -> Vector {
+        let world_normal = self.inv_cumulative_transform.transpose() * obj_normal;
+        Vector::new(world_normal.x(), world_normal.y(), world_normal.z()).normalized()
     }
 
     pub fn cast_shadow(&self) -> bool {
@@ -116,6 +245,70 @@ impl Shape {
         self.geometry.is_similar(&*other.geometry)
             && self.material.approx_eq(&other.material)
             && self.transform.approx_eq(&other.transform)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Group {
+    transform: Matrix,
+    cumulative_transform: Matrix,
+    inv_cumulative_transform: Matrix,
+    cast_shadow: bool,
+    items: Vec<SceneItem>,
+}
+
+impl Default for Group {
+    fn default() -> Self {
+        Group {
+            transform: Matrix::identity(),
+            cumulative_transform: Matrix::identity(),
+            inv_cumulative_transform: Matrix::identity(),
+            cast_shadow: true,
+            items: vec![],
+        }
+    }
+}
+
+impl Group {
+    pub fn is_similar(&self, other: &Self) -> bool {
+        self.transform.approx_eq(&other.transform)
+            && self
+                .items
+                .iter()
+                .zip(&other.items)
+                .all(|(a, b)| a.is_similar(b))
+    }
+
+    pub fn add_child(&mut self, child: impl Into<SceneItem>) {
+        let child = child.into();
+        self.items.push(child);
+    }
+
+    pub fn intersect(&self, world_ray: &Ray) -> Vec<Intersection> {
+        let mut xs = vec![];
+        for obj in &self.items {
+            xs.extend(obj.intersect(world_ray));
+        }
+        sort_intersections(xs)
+    }
+
+    pub fn with_transform(mut self, t: Matrix) -> Self {
+        self.set_transform(t);
+        self
+    }
+
+    pub fn set_transform(&mut self, t: Matrix) {
+        self.transform = t;
+        self.cumulative_transform = t;
+        self.inv_cumulative_transform = t.inverse();
+    }
+
+    pub fn update_transform(&mut self, t: Matrix) {
+        self.cumulative_transform = t * self.transform;
+        self.inv_cumulative_transform = self.cumulative_transform.inverse();
+        for child in &mut self.items {
+            child.update_transform(self.cumulative_transform)
+        }
     }
 }
 
@@ -142,28 +335,32 @@ mod tests {
     use crate::matrix::{rotation_x, rotation_y, rotation_z, scaling, translation};
     use crate::tuple::{point, vector};
     use std::f64::consts::{FRAC_1_SQRT_2, PI};
-    use std::sync::RwLock;
+    use std::sync::{Arc, RwLock};
 
     fn test_shape() -> Shape {
         Shape::new(TestGeometry::new())
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct TestGeometry {
-        last_ray: RwLock<Option<Ray>>,
+        last_ray: Arc<RwLock<Option<Ray>>>,
     }
 
     impl TestGeometry {
         fn new() -> Self {
             TestGeometry {
-                last_ray: RwLock::new(None),
+                last_ray: Arc::new(RwLock::new(None)),
             }
         }
     }
 
     impl Geometry for TestGeometry {
+        fn duplicate(&self) -> Box<dyn Geometry> {
+            Box::new(self.clone())
+        }
+
         fn is_similar(&self, _: &dyn Geometry) -> bool {
-            unimplemented!()
+            true
         }
 
         fn intersect<'a>(&self, _: &'a Shape, local_ray: &Ray) -> Vec<Intersection<'a>> {
@@ -258,5 +455,104 @@ mod tests {
         s.set_transform(scaling(1, 0.5, 1) * rotation_z(PI / 5.0));
         let n = s.normal_at(point(0, FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
         assert_almost_eq!(n, vector(0, 0.97014, -0.24254));
+    }
+
+    /// Creating a new group
+    #[test]
+    fn new_group() {
+        let g = group();
+        assert_eq!(g.transform, Matrix::identity());
+        assert!(g.items.is_empty());
+    }
+
+    /// Adding a child to a group
+    #[test]
+    fn add_child_to_group() {
+        let mut g = group();
+        let s = test_shape();
+        g.add_child(s.clone());
+        assert_almost_eq!(&g.items[0], s);
+    }
+
+    /// Intersecting a ray with an empty group
+    #[test]
+    fn intersect_empty_group() {
+        let g = group();
+        let r = Ray::new(point(0, 0, 0), vector(0, 0, 1));
+        let xs = g.intersect(&r);
+        assert!(xs.is_empty());
+    }
+
+    /// Intersecting a ray with a nonempty group
+    #[test]
+    fn intersect_nonempty_group() {
+        let mut g = group();
+        let s1 = sphere();
+        let s2 = sphere().with_transform(translation(0, 0, -3));
+        let s3 = sphere().with_transform(translation(5, 0, 0));
+        g.add_child(s1.clone());
+        g.add_child(s2.clone());
+        g.add_child(s3.clone());
+        let r = Ray::new(point(0, 0, 0), vector(0, 0, 1));
+        let xs = g.intersect(&r);
+        assert_eq!(xs.len(), 4);
+        assert_almost_eq!(xs[0].obj, &s2);
+        assert_almost_eq!(xs[1].obj, &s2);
+        assert_almost_eq!(xs[2].obj, &s1);
+        assert_almost_eq!(xs[3].obj, &s1);
+    }
+
+    /// Intersecting a transformed group
+    #[test]
+    fn intersect_transformed_group() {
+        let mut g = group().with_transform(scaling(2, 2, 2));
+        let s = sphere().with_transform(translation(5, 0, 0));
+        g.add_child(s.clone());
+        g.update_transform(Matrix::identity());
+        let r = Ray::new(point(10, 0, -10), vector(0, 0, 1));
+        let xs = g.intersect(&r);
+        assert_eq!(xs.len(), 2);
+    }
+
+    /// Converting a point from world to object space
+    #[test]
+    fn world_point_to_object_point() {
+        let mut g1 = group().with_transform(rotation_y(PI / 2.0));
+        let mut g2 = group().with_transform(scaling(2, 2, 2));
+        let s = sphere().with_transform(translation(5, 0, 0));
+        g2.add_child(s);
+        g1.add_child(g2);
+        g1.update_transform(Matrix::identity());
+        let s = g1.items[0].as_group().unwrap().items[0].as_shape().unwrap();
+        assert_almost_eq!(s.world_to_object(point(-2, 0, -10)), point(0, 0, -1));
+    }
+
+    /// Converting a normal from object to world space
+    #[test]
+    fn object_normal_to_world_normal() {
+        let mut g1 = group().with_transform(rotation_y(PI / 2.0));
+        let mut g2 = group().with_transform(scaling(1, 2, 3));
+        let s = sphere().with_transform(translation(5, 0, 0));
+        g2.add_child(s);
+        g1.add_child(g2);
+        g1.update_transform(Matrix::identity());
+        let s = g1.items[0].as_group().unwrap().items[0].as_shape().unwrap();
+        let s33 = 3.0f64.sqrt() / 3.0;
+        let n = s.normal_to_world(vector(s33, s33, s33));
+        assert_almost_eq!(n, vector(0.28571, 0.42857, -0.85714));
+    }
+
+    /// Finding the normal on a child object
+    #[test]
+    fn normal_in_group() {
+        let mut g1 = group().with_transform(rotation_y(PI / 2.0));
+        let mut g2 = group().with_transform(scaling(1, 2, 3));
+        let s = sphere().with_transform(translation(5, 0, 0));
+        g2.add_child(s);
+        g1.add_child(g2);
+        g1.update_transform(Matrix::identity());
+        let s = g1.items[0].as_group().unwrap().items[0].as_shape().unwrap();
+        let n = s.normal_at(point(1.7321, 1.1547, -5.5774));
+        assert_almost_eq!(n, vector(0.28570, 0.42854, -0.85716));
     }
 }

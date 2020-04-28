@@ -1,14 +1,14 @@
 use crate::color::{color, Color, BLACK};
 use crate::lights::{Light, LightRay, PointLight};
 use crate::materials::Phong;
-use crate::matrix::scaling;
+use crate::matrix::{scaling, Matrix};
 use crate::ray::{hit, Intersection, IntersectionState, Ray};
-use crate::shapes::{sphere, Shape};
+use crate::shapes::{sphere, SceneItem, Shape};
 use crate::tuple::{point, Point};
 
 pub struct World {
     lights: Vec<Box<dyn Light>>,
-    objects: Vec<Shape>,
+    objects: Vec<SceneItem>,
     max_reflection_depth: u32,
 }
 
@@ -20,20 +20,22 @@ impl Default for World {
                 color(1, 1, 1),
             ))],
             vec![
-                sphere().with_material(
-                    Phong::default()
-                        .with_color(color(0.8, 1.0, 0.6))
-                        .with_diffuse(0.7)
-                        .with_specular(0.2),
-                ),
-                sphere().with_transform(scaling(0.5, 0.5, 0.5)),
+                sphere()
+                    .with_material(
+                        Phong::default()
+                            .with_color(color(0.8, 1.0, 0.6))
+                            .with_diffuse(0.7)
+                            .with_specular(0.2),
+                    )
+                    .into(),
+                sphere().with_transform(scaling(0.5, 0.5, 0.5)).into(),
             ],
         )
     }
 }
 
 impl World {
-    pub fn new(lights: Vec<Box<dyn Light>>, objects: Vec<Shape>) -> Self {
+    pub fn new(lights: Vec<Box<dyn Light>>, objects: Vec<SceneItem>) -> Self {
         World {
             lights,
             objects,
@@ -50,7 +52,13 @@ impl World {
     }
 
     pub fn add_shape(&mut self, shape: Shape) {
-        self.objects.push(shape);
+        self.objects.push(shape.into());
+    }
+
+    pub fn finalize_scene(&mut self) {
+        for obj in &mut self.objects {
+            obj.update_transform(Matrix::identity());
+        }
     }
 
     pub fn trace(&self, ray: &Ray) -> Option<Color> {
@@ -217,7 +225,7 @@ mod tests {
     fn shade_intersection() {
         let w = World::default();
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
-        let shape = &w.objects[0];
+        let shape = w.objects[0].as_shape().unwrap();
         let i = Intersection::new(4.0, shape);
         let comps = i.prepare_computations(&r, &[i]);
         let c = w.shade_hit(comps, 0);
@@ -229,7 +237,7 @@ mod tests {
     fn shade_inner_intersection() {
         let mut w = World::default();
         let r = Ray::new(point(0, 0, 0), vector(0, 0, 1));
-        let shape = &w.objects[1];
+        let shape = w.objects[1].as_shape().unwrap();
         let i = Intersection::new(0.5, shape);
         w.lights = vec![Box::new(PointLight::new(point(0, 0.25, 0), color(1, 1, 1)))];
         let comps = i.prepare_computations(&r, &[i]);
@@ -260,10 +268,23 @@ mod tests {
     fn behind() {
         let mut w = World::default();
         let r = Ray::new(point(0, 0, 0.75), vector(0, 0, -1));
-        let m0 = w.objects[0].material().clone().with_ambient(1.0);
-        w.objects[0].set_material(m0);
-        let m1 = w.objects[1].material().clone().with_ambient(1.0);
-        w.objects[1].set_material(m1.clone());
+        let m0 = w.objects[0]
+            .as_shape()
+            .unwrap()
+            .material()
+            .clone()
+            .with_ambient(1.0);
+        w.objects[0].as_shape_mut().unwrap().set_material(m0);
+        let m1 = w.objects[1]
+            .as_shape()
+            .unwrap()
+            .material()
+            .clone()
+            .with_ambient(1.0);
+        w.objects[1]
+            .as_shape_mut()
+            .unwrap()
+            .set_material(m1.clone());
         let c = w.color_at(&r, 0).unwrap();
         assert_almost_eq!(SurfaceColor::Flat(c), m1.color());
     }
@@ -304,8 +325,8 @@ mod tests {
     #[test]
     fn shadow6() {
         let mut w = World::default();
-        w.objects[0].set_cast_shadow(false);
-        w.objects[1].set_cast_shadow(false);
+        w.objects[0].as_shape_mut().unwrap().set_cast_shadow(false);
+        w.objects[1].as_shape_mut().unwrap().set_cast_shadow(false);
         let p = point(10, -10, 10);
         assert!(!w.is_shadowed(&w.lights[0].incoming_at(p), p))
     }
@@ -319,7 +340,7 @@ mod tests {
         w.add_shape(sphere().with_transform(translation(0, 0, 10)));
 
         let r = Ray::new(point(0, 0, 5), vector(0, 0, 1));
-        let i = Intersection::new(4.0, &w.objects[1]);
+        let i = Intersection::new(4.0, w.objects[1].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
         let c = w.shade_hit(comps, 0);
         assert_almost_eq!(c, color(0.1, 0.1, 0.1));
@@ -330,8 +351,12 @@ mod tests {
     fn reflect_nothing() {
         let mut w = World::default();
         let r = Ray::new(point(0, 0, 0), vector(0, 0, 1));
-        w.objects[1].material_mut().set_ambient(1.0);
-        let i = Intersection::new(1.0, &w.objects[1]);
+        w.objects[1]
+            .as_shape_mut()
+            .unwrap()
+            .material_mut()
+            .set_ambient(1.0);
+        let i = Intersection::new(1.0, w.objects[1].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
         let c = w.reflected_color(&comps, 1);
         assert_almost_eq!(c, color(0, 0, 0));
@@ -346,7 +371,7 @@ mod tests {
         shape.set_transform(translation(0, -1, 0));
         w.add_shape(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
-        let i = Intersection::new(SQRT_2, &w.objects[2]);
+        let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
         let c = w.reflected_color(&comps, 1);
         assert_almost_eq!(c, color(0.19033, 0.23792, 0.14274));
@@ -361,7 +386,7 @@ mod tests {
         shape.set_transform(translation(0, -1, 0));
         w.add_shape(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
-        let i = Intersection::new(SQRT_2, &w.objects[2]);
+        let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
         let c = w.shade_hit(comps, 1);
         assert_almost_eq!(c, color(0.87676, 0.92434, 0.82917));
@@ -376,7 +401,7 @@ mod tests {
         shape.set_transform(translation(0, -1, 0));
         w.add_shape(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
-        let i = Intersection::new(SQRT_2, &w.objects[2]);
+        let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
         let c = w.reflected_color(&comps, 0);
         assert_almost_eq!(c, color(0, 0, 0));
@@ -414,7 +439,7 @@ mod tests {
     #[test]
     fn refract_opaque() {
         let w = World::default();
-        let shape = &w.objects[0];
+        let shape = w.objects[0].as_shape().unwrap();
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
         let xs = intersections![Intersection::new(4.0, shape), Intersection::new(6.0, shape)];
         let comps = xs[0].prepare_computations(&r, &xs);
@@ -426,9 +451,17 @@ mod tests {
     #[test]
     fn refract_recursion_limit() {
         let mut w = World::default();
-        w.objects[0].material_mut().set_transparency(1.0);
-        w.objects[0].material_mut().set_refractive_index(1.5);
-        let shape = &w.objects[0];
+        w.objects[0]
+            .as_shape_mut()
+            .unwrap()
+            .material_mut()
+            .set_transparency(1.0);
+        w.objects[0]
+            .as_shape_mut()
+            .unwrap()
+            .material_mut()
+            .set_refractive_index(1.5);
+        let shape = w.objects[0].as_shape().unwrap();
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
         let xs = intersections![Intersection::new(4.0, shape), Intersection::new(6.0, shape)];
         let comps = xs[0].prepare_computations(&r, &xs);
@@ -440,9 +473,17 @@ mod tests {
     #[test]
     fn refract_total_internal_reflection() {
         let mut w = World::default();
-        w.objects[0].material_mut().set_transparency(1.0);
-        w.objects[0].material_mut().set_refractive_index(1.5);
-        let shape = &w.objects[0];
+        w.objects[0]
+            .as_shape_mut()
+            .unwrap()
+            .material_mut()
+            .set_transparency(1.0);
+        w.objects[0]
+            .as_shape_mut()
+            .unwrap()
+            .material_mut()
+            .set_refractive_index(1.5);
+        let shape = w.objects[0].as_shape().unwrap();
         let r = Ray::new(point(0, 0, FRAC_1_SQRT_2), vector(0, 1, 0));
         let xs = intersections![
             Intersection::new(-FRAC_1_SQRT_2, shape),
@@ -461,12 +502,28 @@ mod tests {
         }
 
         let mut w = World::default();
-        w.objects[0].material_mut().set_ambient(1.0);
-        w.objects[0].material_mut().set_pattern(test_pattern());
-        w.objects[1].material_mut().set_transparency(1.0);
-        w.objects[1].material_mut().set_refractive_index(1.5);
-        let a = &w.objects[0];
-        let b = &w.objects[1];
+        w.objects[0]
+            .as_shape_mut()
+            .unwrap()
+            .material_mut()
+            .set_ambient(1.0);
+        w.objects[0]
+            .as_shape_mut()
+            .unwrap()
+            .material_mut()
+            .set_pattern(test_pattern());
+        w.objects[1]
+            .as_shape_mut()
+            .unwrap()
+            .material_mut()
+            .set_transparency(1.0);
+        w.objects[1]
+            .as_shape_mut()
+            .unwrap()
+            .material_mut()
+            .set_refractive_index(1.5);
+        let a = w.objects[0].as_shape().unwrap();
+        let b = w.objects[1].as_shape().unwrap();
 
         let r = Ray::new(point(0, 0, 0.1), vector(0, 1, 0));
         let xs = intersections![
@@ -497,7 +554,7 @@ mod tests {
                 .with_material(Phong::default().with_rgb(1.0, 0.0, 0.0).with_ambient(0.5)),
         );
 
-        let floor = &w.objects[2];
+        let floor = w.objects[2].as_shape().unwrap();
 
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let xs = intersections![Intersection::new(SQRT_2, floor),];
@@ -524,7 +581,7 @@ mod tests {
                 .with_material(Phong::default().with_rgb(1.0, 0.0, 0.0).with_ambient(0.5)),
         );
 
-        let floor = &w.objects[2];
+        let floor = w.objects[2].as_shape().unwrap();
 
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let xs = intersections![Intersection::new(SQRT_2, floor),];

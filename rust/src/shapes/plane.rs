@@ -7,7 +7,7 @@ pub fn plane() -> Shape {
     Shape::new(Plane::new())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Plane;
 
 impl Plane {
@@ -17,6 +17,10 @@ impl Plane {
 }
 
 impl Geometry for Plane {
+    fn duplicate(&self) -> Box<dyn Geometry> {
+        Box::new(*self)
+    }
+
     fn is_similar(&self, other: &dyn Geometry) -> bool {
         other.as_any().downcast_ref::<Plane>().is_some()
     }

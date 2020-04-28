@@ -9,7 +9,7 @@ pub fn cylinder() -> Shape {
     Shape::new(Cylinder::default())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Cylinder {
     minimum: f64,
     maximum: f64,
@@ -62,6 +62,10 @@ fn check_cap(ray: &Ray, t: f64, radius: f64) -> bool {
 }
 
 impl Geometry for Cylinder {
+    fn duplicate(&self) -> Box<dyn Geometry> {
+        Box::new(*self)
+    }
+
     fn is_similar(&self, other: &dyn Geometry) -> bool {
         other.as_any().downcast_ref::<Cylinder>().is_some()
     }

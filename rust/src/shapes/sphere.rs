@@ -21,7 +21,7 @@ pub fn glass_sphere() -> Shape {
     )
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Sphere;
 
 impl Sphere {
@@ -31,6 +31,10 @@ impl Sphere {
 }
 
 impl Geometry for Sphere {
+    fn duplicate(&self) -> Box<dyn Geometry> {
+        Box::new(*self)
+    }
+
     fn is_similar(&self, other: &dyn Geometry) -> bool {
         other.as_any().downcast_ref::<Sphere>().is_some()
     }
