@@ -1,7 +1,8 @@
+use crate::aabb::Aabb;
 use crate::approx_eq::EPSILON;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
-use crate::tuple::{point, vector, Point, Vector};
+use crate::tuple::{vector, Point, Vector};
 use std::sync::Arc;
 
 pub fn planar_heightmap(
@@ -25,8 +26,7 @@ pub fn planar_heightmap(
 pub struct PlanarHeightmap {
     height_func: Arc<dyn Sync + Send + Fn(f64, f64) -> f64>,
     detail_scale: f64,
-    min_bound: Point,
-    max_bound: Point,
+    aabb: Aabb,
 }
 
 impl PlanarHeightmap {
@@ -34,55 +34,26 @@ impl PlanarHeightmap {
         PlanarHeightmap {
             height_func: Arc::new(func),
             detail_scale: 0.1,
-            min_bound: point(-1, -1, -1),
-            max_bound: point(1, 1, 1),
+            aabb: Aabb::new(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0),
         }
     }
 
     pub fn with_xrange(mut self, xmin: f64, xmax: f64) -> Self {
-        self.min_bound.set_x(xmin);
-        self.max_bound.set_x(xmax);
+        self.aabb.min_p.set_x(xmin);
+        self.aabb.max_p.set_x(xmax);
         self
     }
 
     pub fn with_yrange(mut self, ymin: f64, ymax: f64) -> Self {
-        self.min_bound.set_y(ymin);
-        self.max_bound.set_y(ymax);
+        self.aabb.min_p.set_y(ymin);
+        self.aabb.max_p.set_y(ymax);
         self
     }
 
     pub fn with_zrange(mut self, zmin: f64, zmax: f64) -> Self {
-        self.min_bound.set_z(zmin);
-        self.max_bound.set_z(zmax);
+        self.aabb.min_p.set_z(zmin);
+        self.aabb.max_p.set_z(zmax);
         self
-    }
-
-    fn intersect_aabb(&self, r: &Ray) -> Option<(f64, f64)> {
-        let (xtmin, xtmax) = check_axis(
-            r.origin().x(),
-            r.direction().x(),
-            self.min_bound.x(),
-            self.max_bound.x(),
-        )?;
-        let (ytmin, ytmax) = check_axis(
-            r.origin().y(),
-            r.direction().y(),
-            self.min_bound.y(),
-            self.max_bound.y(),
-        )?;
-        let (ztmin, ztmax) = check_axis(
-            r.origin().z(),
-            r.direction().z(),
-            self.min_bound.z(),
-            self.max_bound.z(),
-        )?;
-        let tmin = xtmin.max(ytmin).max(ztmin);
-        let tmax = xtmax.min(ytmax).min(ztmax);
-        if tmin > tmax {
-            None
-        } else {
-            Some((tmin, tmax))
-        }
     }
 
     fn find_intersection(&self, r: &Ray, t1: f64, h1: f64, t2: f64, h2: f64) -> f64 {
@@ -116,7 +87,7 @@ impl Geometry for PlanarHeightmap {
     }
 
     fn intersect<'a>(&self, obj: &'a Shape, local_ray: &Ray) -> Vec<Intersection<'a>> {
-        let (tmin, tmax) = match self.intersect_aabb(local_ray) {
+        let (tmin, tmax) = match self.aabb.intersect(local_ray) {
             None => return vec![],
             Some(range) => range,
         };
@@ -172,8 +143,12 @@ impl Geometry for PlanarHeightmap {
     }
 
     fn normal_at(&self, p: Point) -> Vector {
-        if p.y() >= self.max_bound.y() {
+        if p.y() >= self.aabb.max_p.y() {
             return vector(0, 1, 0);
+        }
+
+        if p.y() <= self.aabb.min_p.y() {
+            return vector(0, -1, 0);
         }
 
         let dx = self.detail_scale * 0.01;
@@ -188,18 +163,9 @@ impl Geometry for PlanarHeightmap {
 
         vz.cross(&vx).normalized()
     }
-}
 
-fn check_axis(origin: f64, direction: f64, min: f64, max: f64) -> Option<(f64, f64)> {
-    if direction == 0.0 && (origin < min || origin > max) {
-        return None;
-    }
-    let t_min = (min - origin) / direction;
-    let t_max = (max - origin) / direction;
-    if t_min > t_max {
-        Some((t_max, t_min))
-    } else {
-        Some((t_min, t_max))
+    fn aabb(&self) -> Aabb {
+        self.aabb.clone()
     }
 }
 

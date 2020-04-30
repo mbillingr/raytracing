@@ -1,3 +1,4 @@
+use crate::aabb::Aabb;
 use crate::approx_eq::EPSILON;
 use crate::math::Squared;
 use crate::ray::{Intersection, Ray};
@@ -114,6 +115,10 @@ impl Geometry for Cylinder {
         }
 
         vector(p.x(), 0, p.z())
+    }
+
+    fn aabb(&self) -> Aabb {
+        Aabb::new(-1.0, 1.0, self.minimum, self.maximum, -1.0, 1.0)
     }
 }
 

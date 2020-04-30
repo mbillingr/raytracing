@@ -6,7 +6,8 @@
         (raytrace matrix)
         (raytrace transformations)
         (raytrace constants)
-        (raytrace material))
+        (raytrace material)
+        (raytrace aabb))
 
 ;; generic shapes
 ;; ===========================================================================
@@ -509,3 +510,28 @@
         (g2 'add-children! s)
         (n <- (s 'normal-at (point 1.7321 1.1547 -5.5774))))
   (then (n == (vec 0.28570 0.42854 -0.85716))))
+
+(test "Updating bounding boxes on a group"
+  (given (g1 <- (group))
+         (g2 <- (group))
+         (a <- (sphere))
+         (b <- (sphere)))
+  (when (a 'set-transform! (translation -4 0 0))
+        (b 'set-transform! (translation 4 0 0))
+        (g1 'set-transform! (scaling 2 2 2))
+        (g2 'set-transform! (rotation-y (/ PI 2)))
+        (g2 'add-children! a b)
+        (g1 'add-children! g2)
+        (g1 'update-aabb!))
+  (then ((g1 'aabb) == (make-aabb -2 2 -2 2 -10 10))))
+
+(test "Intersecting a transformed group with bounding boxes"
+  (given (g <- (group))
+         (s <- (sphere))
+         (r <- (ray (point 10 0 -10) (vec 0 0 1))))
+  (when (g 'set-transform! (scaling 2 2 2))
+        (s 'set-transform! (translation 5 0 0))
+        (g 'add-children! s)
+        (g 'update-aabb!)
+        (xs <- (g 'intersect r)))
+  (then ((length xs) == 2)))

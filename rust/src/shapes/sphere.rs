@@ -1,3 +1,4 @@
+use crate::aabb::Aabb;
 use crate::materials::Phong;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
@@ -59,6 +60,10 @@ impl Geometry for Sphere {
 
     fn normal_at(&self, local_point: Point) -> Vector {
         local_point - point(0, 0, 0)
+    }
+
+    fn aabb(&self) -> Aabb {
+        Aabb::new(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0)
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::aabb::Aabb;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
 use crate::tuple::{vector, Point, Vector};
@@ -58,6 +59,10 @@ impl Geometry for Cube {
                 vector(0, 0, local_point.z())
             }
         }
+    }
+
+    fn aabb(&self) -> Aabb {
+        Aabb::new(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0)
     }
 }
 

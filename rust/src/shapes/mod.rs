@@ -7,11 +7,12 @@ mod sphere;
 
 pub use cone::cone;
 pub use cube::cube;
-pub use cylinder::cylinder;
+pub use cylinder::{cylinder, Cylinder};
 pub use planar_heightmap::planar_heightmap;
 pub use plane::plane;
 pub use sphere::{glass_sphere, sphere};
 
+use crate::aabb::Aabb;
 use crate::approx_eq::ApproximateEq;
 use crate::color::Color;
 use crate::materials::Phong;
@@ -25,18 +26,24 @@ pub fn group() -> Group {
     Group::default()
 }
 
+pub fn bounding_group() -> BoundingGroup {
+    BoundingGroup::default()
+}
+
 pub trait Geometry: 'static + AsAny + std::fmt::Debug + Sync {
     fn duplicate(&self) -> Box<dyn Geometry>;
     //fn as_any(&self) -> &dyn Any;// { self }
     fn is_similar(&self, other: &dyn Geometry) -> bool;
     fn intersect<'a>(&self, obj: &'a Shape, local_ray: &Ray) -> Vec<Intersection<'a>>;
     fn normal_at(&self, local_point: Point) -> Vector;
+    fn aabb(&self) -> Aabb;
 }
 
 #[derive(Debug, Clone)]
 pub enum SceneItem {
     Primitive(Shape),
     Compound(Group),
+    Bounded(BoundingGroup),
 }
 
 impl SceneItem {
@@ -67,10 +74,20 @@ impl SceneItem {
         }
     }
 
+    pub fn with_transform(self, t: Matrix) -> Self {
+        use SceneItem::*;
+        match self {
+            Primitive(shape) => Primitive(shape.with_transform(t)),
+            Compound(group) => Compound(group.with_transform(t)),
+            Bounded(group) => Bounded(group.with_transform(t)),
+        }
+    }
+
     pub fn intersect(&self, world_ray: &Ray) -> Vec<Intersection> {
         match self {
             SceneItem::Primitive(shape) => shape.intersect(world_ray),
             SceneItem::Compound(group) => group.intersect(world_ray),
+            SceneItem::Bounded(group) => group.intersect(world_ray),
         }
     }
 
@@ -78,6 +95,7 @@ impl SceneItem {
         match self {
             SceneItem::Primitive(shape) => shape.cast_shadow(),
             SceneItem::Compound(group) => group.cast_shadow,
+            SceneItem::Bounded(bgroup) => bgroup.group.cast_shadow,
         }
     }
 
@@ -85,6 +103,7 @@ impl SceneItem {
         match self {
             SceneItem::Primitive(shape) => shape.update_transform(t),
             SceneItem::Compound(group) => group.update_transform(t),
+            SceneItem::Bounded(group) => group.group.update_transform(t),
         }
     }
 
@@ -96,14 +115,21 @@ impl SceneItem {
             (Compound(g), Primitive(s)) | (Primitive(s), Compound(g)) => {
                 is_group_similar_to_shape(g, s)
             }
+            (Bounded(a), Bounded(b)) => a.group.is_similar(&b.group),
+            (Bounded(b), Compound(g)) | (Compound(g), Bounded(b)) => b.group.is_similar(g),
+            (Bounded(b), Primitive(s)) | (Primitive(s), Bounded(b)) => {
+                is_group_similar_to_shape(&b.group, s)
+            }
         }
     }
 
-    /*pub fn set_world_transform(&mut self, t: Matrix) {
+    pub fn update_aabb(&mut self) -> Aabb {
         match self {
-            SceneItem::Primitive(shape) => shape.set_world_transform(t),
+            SceneItem::Primitive(shape) => shape.aabb(),
+            SceneItem::Compound(group) => group.aabb(),
+            SceneItem::Bounded(bgroup) => bgroup.update_aabb().clone(),
         }
-    }*/
+    }
 }
 
 pub fn is_group_similar_to_shape(g: &Group, s: &Shape) -> bool {
@@ -112,6 +138,7 @@ pub fn is_group_similar_to_shape(g: &Group, s: &Shape) -> bool {
         && match &g.items[0] {
             SceneItem::Primitive(gs) => gs.is_similar(s),
             SceneItem::Compound(gg) => is_group_similar_to_shape(gg, s),
+            SceneItem::Bounded(bg) => is_group_similar_to_shape(&bg.group, s),
         }
 }
 
@@ -124,6 +151,12 @@ impl From<Shape> for SceneItem {
 impl From<Group> for SceneItem {
     fn from(group: Group) -> SceneItem {
         SceneItem::Compound(group)
+    }
+}
+
+impl From<BoundingGroup> for SceneItem {
+    fn from(group: BoundingGroup) -> SceneItem {
+        SceneItem::Bounded(group)
     }
 }
 
@@ -246,6 +279,10 @@ impl Shape {
             && self.material.approx_eq(&other.material)
             && self.transform.approx_eq(&other.transform)
     }
+
+    fn aabb(&self) -> Aabb {
+        self.geometry.aabb().transform(self.cumulative_transform)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -310,6 +347,51 @@ impl Group {
             child.update_transform(self.cumulative_transform)
         }
     }
+
+    pub fn aabb(&mut self) -> Aabb {
+        let mut aabb = Aabb::empty();
+        for child in &mut self.items {
+            aabb = aabb.merge(&child.update_aabb());
+        }
+        aabb
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct BoundingGroup {
+    pub(crate) group: Group,
+    pub(crate) aabb: Aabb,
+}
+
+impl BoundingGroup {
+    pub fn add_child(&mut self, child: impl Into<SceneItem>) {
+        self.group.add_child(child);
+    }
+
+    pub fn with_transform(self, transform: Matrix) -> Self {
+        BoundingGroup {
+            group: self.group.with_transform(transform),
+            ..self
+        }
+    }
+
+    pub fn update_aabb(&mut self) -> &Aabb {
+        let mut aabb = Aabb::empty();
+        for child in &mut self.group.items {
+            aabb = aabb.merge(&child.update_aabb());
+        }
+        //aabb = aabb.transform(self.group.inv_cumulative_transform);
+        self.aabb = aabb;
+        &self.aabb
+    }
+
+    pub fn intersect(&self, world_ray: &Ray) -> Vec<Intersection> {
+        if self.aabb.intersect(world_ray).is_some() {
+            self.group.intersect(world_ray)
+        } else {
+            vec![]
+        }
+    }
 }
 
 /*impl PartialEq for dyn Shape + '_ {
@@ -370,6 +452,10 @@ mod tests {
 
         fn normal_at(&self, obj_point: Point) -> Vector {
             vector(obj_point.x(), obj_point.y(), obj_point.z())
+        }
+
+        fn aabb(&self) -> Aabb {
+            unimplemented!()
         }
     }
 

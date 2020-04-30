@@ -1,3 +1,4 @@
+use crate::aabb::Aabb;
 use crate::approx_eq::EPSILON;
 use crate::math::Squared;
 use crate::ray::{Intersection, Ray};
@@ -133,6 +134,11 @@ impl Geometry for Cone {
             },
             p.z(),
         )
+    }
+
+    fn aabb(&self) -> Aabb {
+        let radius = f64::max(self.minimum.abs(), self.maximum.abs());
+        Aabb::new(-radius, radius, self.minimum, self.maximum, -radius, radius)
     }
 }
 

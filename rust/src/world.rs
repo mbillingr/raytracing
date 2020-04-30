@@ -55,9 +55,16 @@ impl World {
         self.objects.push(shape.into());
     }
 
+    pub fn add_item(&mut self, item: SceneItem) {
+        self.objects.push(item);
+    }
+
     pub fn finalize_scene(&mut self) {
         for obj in &mut self.objects {
             obj.update_transform(Matrix::identity());
+        }
+        for obj in &mut self.objects {
+            obj.update_aabb();
         }
     }
 

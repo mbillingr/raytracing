@@ -16,7 +16,7 @@ pub fn vector(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>) -> Vector
 pub struct Point(pub(crate) Vector4<f64>);
 
 impl Point {
-    fn new(x: f64, y: f64, z: f64) -> Self {
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
         Point([x, y, z, 1.0])
     }
 

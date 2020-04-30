@@ -1,8 +1,9 @@
+use crate::aabb::Aabb;
 use crate::color::Color;
 use crate::lights::{Light, PointLight};
 use crate::materials::{Phong, SurfaceColor};
 use crate::matrix::Matrix;
-use crate::shapes::{is_group_similar_to_shape, Group, SceneItem, Shape};
+use crate::shapes::{is_group_similar_to_shape, BoundingGroup, Group, SceneItem, Shape};
 use crate::tuple::{Point, Vector};
 
 pub trait ApproximateEq<T: ?Sized = Self> {
@@ -107,6 +108,12 @@ impl ApproximateEq for Group {
     }
 }
 
+impl ApproximateEq for BoundingGroup {
+    fn approx_eq(&self, other: &Self) -> bool {
+        self.group.is_similar(&other.group)
+    }
+}
+
 impl ApproximateEq for SceneItem {
     fn approx_eq(&self, other: &Self) -> bool {
         self.is_similar(other)
@@ -125,12 +132,25 @@ impl ApproximateEq<Group> for Shape {
     }
 }
 
+impl ApproximateEq<Shape> for BoundingGroup {
+    fn approx_eq(&self, other: &Shape) -> bool {
+        is_group_similar_to_shape(&self.group, other)
+    }
+}
+
+impl ApproximateEq<BoundingGroup> for Shape {
+    fn approx_eq(&self, other: &BoundingGroup) -> bool {
+        is_group_similar_to_shape(&other.group, self)
+    }
+}
+
 impl ApproximateEq<Shape> for SceneItem {
     fn approx_eq(&self, other: &Shape) -> bool {
         use SceneItem::*;
         match self {
             Primitive(a) => a.approx_eq(other),
             Compound(g) => g.approx_eq(other),
+            Bounded(b) => b.approx_eq(other),
         }
     }
 }
@@ -141,6 +161,7 @@ impl ApproximateEq<SceneItem> for Shape {
         match other {
             Primitive(b) => self.approx_eq(b),
             Compound(g) => self.approx_eq(g),
+            Bounded(b) => self.approx_eq(b),
         }
     }
 }
@@ -148,6 +169,12 @@ impl ApproximateEq<SceneItem> for Shape {
 impl<T: ?Sized + ApproximateEq<T>> ApproximateEq<Box<T>> for T {
     fn approx_eq(&self, other: &Box<T>) -> bool {
         self.approx_eq(&*other)
+    }
+}
+
+impl ApproximateEq for Aabb {
+    fn approx_eq(&self, other: &Self) -> bool {
+        self.min_p.approx_eq(&other.min_p) && self.max_p.approx_eq(&other.max_p)
     }
 }
 

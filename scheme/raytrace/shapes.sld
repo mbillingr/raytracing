@@ -14,7 +14,8 @@
           (raytrace transformations)
           (raytrace material)
           (raytrace constants)
-          (raytrace compare))
+          (raytrace compare)
+          (raytrace aabb))
   (begin
     (define (group)
       (make-group))
@@ -86,6 +87,9 @@
                (set! inv-transform (m4-inverse (car args))))
               ((eq? m 'set-material!) (set! material (car args)))
               ((eq? m 'set-parent!) (set! parent (car args)))
+              ((or (eq? m 'aabb)
+                   (eq? m 'update-aabb!))
+               (aabb-transform (geometry 'aabb) transform))
               (else (apply geometry m args))))
 
       dispatch)
@@ -95,6 +99,7 @@
       (define inv-transform (identity-transform))
       (define shapes '())
       (define parent #f)
+      (define aabb #f)
 
       (define (add-children child*)
         (if (null? child*)
@@ -103,6 +108,12 @@
               (child 'set-parent! dispatch)
               (set! shapes (cons child shapes))
               (add-children (cdr child*)))))
+
+      (define (intersect r)
+        (if (or (not aabb)
+                (aabb-intersect aabb r))
+            (local-intersect (ray-transform r inv-transform))
+            (intersections)))
 
       (define (local-intersect r)
         (let loop ((s shapes)
@@ -126,8 +137,20 @@
               (parent 'normal-to-world n)
               n)))
 
+      (define (update-aabb!)
+        (define (merge-child-boxes shapes result)
+          (if (null? shapes)
+              result
+              (merge-child-boxes (cdr shapes)
+                                 (aabb-merge ((car shapes) 'update-aabb!)
+                                             result))))
+        (let ((box (aabb-transform (merge-child-boxes shapes (empty-aabb))
+                                   transform)))
+          (set! aabb box)
+          box))
+
       (define (dispatch m . args)
-        (cond ((eq? m 'intersect) (local-intersect (ray-transform (car args) inv-transform)))
+        (cond ((eq? m 'intersect) (intersect (car args)))
               ;((eq? m 'normal-at) (normal-at (car args)))
               ((eq? m 'world-to-object) (world-to-object (car args)))
               ((eq? m 'normal-to-world) (normal-to-world (car args)))
@@ -140,6 +163,8 @@
               ((eq? m 'shapes) shapes)
               ((eq? m 'add-children!) (add-children args))
               ((eq? m 'set-parent!) (set! parent (car args)))
+              ((eq? m 'aabb) aabb)
+              ((eq? m 'update-aabb!) (update-aabb!))
               (else (error "unknown method (group m ...)" m))))
       dispatch)
 
@@ -174,6 +199,7 @@
       (define (dispatch m . args)
         (cond ((eq? m 'intersect) (intersect (car args) (cadr args)))
               ((eq? m 'normal-at) (normal-at (car args)))
+              ((eq? m 'aabb) (make-aabb -1 1 -1 1 -1 1))
               (else (error "unknown method (sphere-geometry m ...)" m))))
 
       dispatch)
@@ -193,6 +219,7 @@
       (define (dispatch m . args)
         (cond ((eq? m 'intersect) (intersect (car args) (cadr args)))
               ((eq? m 'normal-at) (normal-at (car args)))
+              ((eq? m 'aabb) (make-aabb -inf.0 +inf.0 (- EPSILON) EPSILON -inf.0 +inf.0))
               (else (error "unknown method (plane-geometry m ...)" m))))
 
       dispatch)
@@ -236,6 +263,7 @@
       (define (dispatch m . args)
         (cond ((eq? m 'intersect) (intersect (car args) (cadr args)))
               ((eq? m 'normal-at) (normal-at (car args)))
+              ((eq? m 'aabb) (make-aabb -1 1 -1 1 -1 1))
               (else (error "unknown method (plane-geometry m ...)" m))))
 
       dispatch)
@@ -330,6 +358,7 @@
               ((eq? m 'set-minimum!) (set! minimum (car args)))
               ((eq? m 'set-maximum!) (set! maximum (car args)))
               ((eq? m 'set-closed!) (set! closed? (if (car args) #t #f)))
+              ((eq? m 'aabb) (make-aabb -1 1 minimum maximum -1 1))
               (else (error "unknown method (cylinder-geometry m ...)" m))))
 
       dispatch)
@@ -435,6 +464,8 @@
               ((eq? m 'set-minimum!) (set! minimum (car args)))
               ((eq? m 'set-maximum!) (set! maximum (car args)))
               ((eq? m 'set-closed!) (set! closed? (if (car args) #t #f)))
+              ((eq? m 'aabb) (let ((radius (max (abs minimum) (abs maximum))))
+                               (make-aabb (- radius) radius minimum maximum (- radius) radius)))
               (else (error "unknown method (cone-geometry m ...)" m))))
 
       dispatch)))

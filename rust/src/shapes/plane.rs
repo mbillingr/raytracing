@@ -1,7 +1,9 @@
+use crate::aabb::Aabb;
 use crate::approx_eq::EPSILON;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
 use crate::tuple::{Point, Vector};
+use std::f64::INFINITY;
 
 pub fn plane() -> Shape {
     Shape::new(Plane::new())
@@ -38,6 +40,10 @@ impl Geometry for Plane {
 
     fn normal_at(&self, _: Point) -> Vector {
         Vector::new(0.0, 1.0, 0.0)
+    }
+
+    fn aabb(&self) -> Aabb {
+        Aabb::new(-INFINITY, INFINITY, -EPSILON, EPSILON, -INFINITY, INFINITY)
     }
 }
 
