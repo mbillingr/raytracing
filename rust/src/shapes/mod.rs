@@ -4,6 +4,7 @@ mod cylinder;
 pub mod planar_heightmap;
 mod plane;
 mod sphere;
+mod triangle;
 
 pub use cone::cone;
 pub use cube::cube;
@@ -11,6 +12,7 @@ pub use cylinder::{cylinder, Cylinder};
 pub use planar_heightmap::planar_heightmap;
 pub use plane::plane;
 pub use sphere::{glass_sphere, sphere};
+pub use triangle::{triangle, Triangle};
 
 use crate::aabb::Aabb;
 use crate::approx_eq::ApproximateEq;
@@ -198,6 +200,11 @@ impl Shape {
     pub fn intersect(&self, world_ray: &Ray) -> Vec<Intersection> {
         self.geometry
             .intersect(&self, &world_ray.transform(*self.inv_transform()))
+    }
+
+    pub fn local_intersect(&self, local_ray: &Ray) -> Vec<Intersection> {
+        self.geometry
+            .intersect(&self, local_ray)
     }
 
     pub fn normal_at(&self, world_point: Point) -> Vector {
