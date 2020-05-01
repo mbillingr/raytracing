@@ -323,9 +323,17 @@ impl Group {
                 .all(|(a, b)| a.is_similar(b))
     }
 
+    pub fn aint_empty(&self) -> bool {
+        !self.items.is_empty()
+    }
+
     pub fn add_child(&mut self, child: impl Into<SceneItem>) {
         let child = child.into();
         self.items.push(child);
+    }
+
+    pub fn get_child(&self, idx: usize) -> &SceneItem {
+        &self.items[idx]
     }
 
     pub fn intersect(&self, world_ray: &Ray) -> Vec<Intersection> {
@@ -397,6 +405,15 @@ impl BoundingGroup {
             self.group.intersect(world_ray)
         } else {
             vec![]
+        }
+    }
+}
+
+impl From<Group> for BoundingGroup {
+    fn from(group: Group) -> Self {
+        BoundingGroup {
+            group,
+            aabb: Aabb::default(),
         }
     }
 }

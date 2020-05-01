@@ -178,6 +178,12 @@ impl ApproximateEq for Aabb {
     }
 }
 
+impl<T: ApproximateEq> ApproximateEq for Vec<T> {
+    fn approx_eq(&self, other: &Vec<T>) -> bool {
+        self.len() == other.len() && self.iter().zip(other).all(|(a, b)| a.approx_eq(b))
+    }
+}
+
 pub trait FindSimilar<T: ?Sized + ApproximateEq<Self::Item>> {
     type Item;
 

@@ -16,3 +16,4 @@ pub mod pattern;
 pub mod shapes;
 pub mod tuple;
 pub mod world;
+pub mod obj_loader;
