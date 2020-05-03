@@ -12,7 +12,7 @@ pub use cylinder::{cylinder, Cylinder};
 pub use planar_heightmap::planar_heightmap;
 pub use plane::plane;
 pub use sphere::{glass_sphere, sphere};
-pub use triangle::{triangle, Triangle, TriangleMesh};
+pub use triangle::{smooth_triangle, triangle, Triangle, TriangleMesh};
 
 use crate::aabb::Aabb;
 use crate::approx_eq::ApproximateEq;
@@ -419,7 +419,6 @@ impl From<Group> for BoundingGroup {
 
 pub fn build_bounding_tree(mut group: Group) -> BoundingGroup {
     let n = group.items.len();
-    println!("{}", n);
 
     if n <= 10 {
         return group.into();

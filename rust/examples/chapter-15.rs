@@ -2,7 +2,7 @@ use raytracing::camera::Camera;
 use raytracing::color::color;
 use raytracing::lights::PointLight;
 use raytracing::materials::Phong;
-use raytracing::matrix::{rotation_y, translation};
+use raytracing::matrix::{rotation_x, rotation_y, scaling, translation};
 use raytracing::obj_loader::ObjParser;
 use raytracing::pattern::checkers_pattern;
 use raytracing::shapes::{build_bounding_tree, plane, Group};
@@ -37,7 +37,8 @@ fn main() {
         .read_to_string(&mut data)
         .unwrap();
     let teapot: Group = ObjParser::parse_str(&data).into();
-    let teapot = teapot.with_transform(rotation_y(PI / 4.0));
+    let teapot = teapot
+        .with_transform(rotation_y(PI / 4.0) * rotation_x(-PI / 2.0) * scaling(0.2, 0.2, 0.2));
     let teapot = build_bounding_tree(teapot);
     world.add_item(teapot.into());
 
