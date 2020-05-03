@@ -38,7 +38,7 @@ impl Geometry for Plane {
         }
     }
 
-    fn normal_at(&self, _: Point) -> Vector {
+    fn normal_at(&self, _: Point, _: &Intersection) -> Vector {
         Vector::new(0.0, 1.0, 0.0)
     }
 
@@ -51,15 +51,18 @@ impl Geometry for Plane {
 mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
+    use crate::shapes::sphere;
     use crate::tuple::{point, vector};
 
     /// The normal of a plane is constant everywhere
     #[test]
     fn normal() {
         let p = Plane::new();
-        let n1 = p.normal_at(point(0, 0, 0));
-        let n2 = p.normal_at(point(10, 0, -10));
-        let n3 = p.normal_at(point(-5, 0, 150));
+        let dummy_shape = sphere();
+        let dummy_intersection = Intersection::new(0.0, &dummy_shape);
+        let n1 = p.normal_at(point(0, 0, 0), &dummy_intersection);
+        let n2 = p.normal_at(point(10, 0, -10), &dummy_intersection);
+        let n3 = p.normal_at(point(-5, 0, 150), &dummy_intersection);
         assert_almost_eq!(n1, vector(0, 1, 0));
         assert_almost_eq!(n2, vector(0, 1, 0));
         assert_almost_eq!(n3, vector(0, 1, 0));

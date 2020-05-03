@@ -114,7 +114,7 @@ impl Geometry for Cone {
         }
     }
 
-    fn normal_at(&self, p: Point) -> Vector {
+    fn normal_at(&self, p: Point, _: &Intersection) -> Vector {
         let dist = p.x().squared() + p.z().squared();
 
         if dist < 1.0 {
@@ -203,7 +203,11 @@ mod tests {
             (point(-1, -1, 0), vector(-1, 1, 0)),
         ] {
             let geometry = Cone::default();
-            assert_almost_eq!(geometry.normal_at(point), normal);
+            let dummy_shape = cone();
+            assert_almost_eq!(
+                geometry.normal_at(point, &Intersection::new(0.0, &dummy_shape)),
+                normal
+            );
         }
     }
 }

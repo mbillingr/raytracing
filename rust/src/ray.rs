@@ -38,6 +38,9 @@ impl Ray {
 pub struct Intersection<'a> {
     pub t: f64,
     pub obj: &'a Shape,
+    pub u: f64,
+    pub v: f64,
+    pub i: usize,
 }
 
 impl PartialEq for Intersection<'_> {
@@ -48,13 +51,27 @@ impl PartialEq for Intersection<'_> {
 
 impl<'a> Intersection<'a> {
     pub fn new(t: f64, obj: &'a Shape) -> Self {
-        Intersection { t, obj }
+        Intersection {
+            t,
+            obj,
+            u: 0.0,
+            v: 0.0,
+            i: 0,
+        }
+    }
+
+    pub fn new_uv(t: f64, u: f64, v: f64, obj: &'a Shape) -> Self {
+        Intersection { t, obj, u, v, i: 0 }
+    }
+
+    pub fn with_i(self, i: usize) -> Self {
+        Intersection { i, ..self }
     }
 
     pub fn prepare_computations(&self, ray: &Ray, xs: &[Intersection]) -> IntersectionState {
         let point = ray.position(self.t);
         let eyev = -ray.direction();
-        let normalv = self.obj.normal_at(point);
+        let normalv = self.obj.normal_at(point, self);
         let inside = normalv.dot(&eyev) < 0.0;
         let normalv = if inside { -normalv } else { normalv };
         let over_point = point + normalv * EPSILON;
@@ -186,7 +203,7 @@ mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
     use crate::matrix::{rotation_x, scaling, translation};
-    use crate::shapes::{glass_sphere, plane, sphere};
+    use crate::shapes::{glass_sphere, plane, sphere, triangle};
     use crate::tuple::{point, vector};
     use std::f32::consts::PI;
     use std::f64::consts::{FRAC_1_SQRT_2, SQRT_2};
@@ -441,5 +458,14 @@ mod tests {
         let comps = xs[0].prepare_computations(&ray, &xs);
         let reflectance = comps.schlick();
         assert_almost_eq!(reflectance, 0.48873)
+    }
+
+    /// An intersection can encapsulate u and v
+    #[test]
+    fn intersecion_with_uv() {
+        let s = triangle(point(0, 1, 0), point(-1, 0, 0), point(1, 0, 0));
+        let i = Intersection::new_uv(3.5, 0.2, 0.4, &s);
+        assert_eq!(i.u, 0.2);
+        assert_eq!(i.v, 0.4);
     }
 }

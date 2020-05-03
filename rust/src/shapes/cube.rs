@@ -40,7 +40,7 @@ impl Geometry for Cube {
             .unwrap_or(vec![])
     }
 
-    fn normal_at(&self, local_point: Point) -> Vector {
+    fn normal_at(&self, local_point: Point, _: &Intersection) -> Vector {
         let (ax, ay, az) = (
             local_point.x().abs(),
             local_point.y().abs(),
@@ -127,13 +127,21 @@ mod tests {
     /// Normals on the surfaces of a cube
     #[test]
     fn normals() {
-        assert_almost_eq!(cube().normal_at(point(1.0, 0.5, -0.8)), vector(1, 0, 0));
-        assert_almost_eq!(cube().normal_at(point(-1.0, -0.2, 0.9)), vector(-1, 0, 0));
-        assert_almost_eq!(cube().normal_at(point(-0.4, 1.0, -0.1)), vector(0, 1, 0));
-        assert_almost_eq!(cube().normal_at(point(0.3, -1.0, -0.7)), vector(0, -1, 0));
-        assert_almost_eq!(cube().normal_at(point(-0.6, 0.3, 1.0)), vector(0, 0, 1));
-        assert_almost_eq!(cube().normal_at(point(0.4, 0.4, -1.0)), vector(0, 0, -1));
-        assert_almost_eq!(cube().normal_at(point(1, 1, 1)), vector(1, 0, 0));
-        assert_almost_eq!(cube().normal_at(point(-1, -1, -1)), vector(-1, 0, 0));
+        let shape = cube();
+        let i = Intersection::new(0.0, &shape);
+        assert_almost_eq!(shape.normal_at(point(1.0, 0.5, -0.8), &i), vector(1, 0, 0));
+        assert_almost_eq!(
+            shape.normal_at(point(-1.0, -0.2, 0.9), &i),
+            vector(-1, 0, 0)
+        );
+        assert_almost_eq!(shape.normal_at(point(-0.4, 1.0, -0.1), &i), vector(0, 1, 0));
+        assert_almost_eq!(
+            shape.normal_at(point(0.3, -1.0, -0.7), &i),
+            vector(0, -1, 0)
+        );
+        assert_almost_eq!(shape.normal_at(point(-0.6, 0.3, 1.0), &i), vector(0, 0, 1));
+        assert_almost_eq!(shape.normal_at(point(0.4, 0.4, -1.0), &i), vector(0, 0, -1));
+        assert_almost_eq!(shape.normal_at(point(1, 1, 1), &i), vector(1, 0, 0));
+        assert_almost_eq!(shape.normal_at(point(-1, -1, -1), &i), vector(-1, 0, 0));
     }
 }

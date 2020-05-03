@@ -12,7 +12,7 @@ pub use cylinder::{cylinder, Cylinder};
 pub use planar_heightmap::planar_heightmap;
 pub use plane::plane;
 pub use sphere::{glass_sphere, sphere};
-pub use triangle::{triangle, Triangle};
+pub use triangle::{triangle, Triangle, TriangleMesh};
 
 use crate::aabb::Aabb;
 use crate::approx_eq::ApproximateEq;
@@ -21,7 +21,7 @@ use crate::materials::Phong;
 use crate::matrix::Matrix;
 use crate::pattern::Pattern;
 use crate::ray::{sort_intersections, Intersection, Ray};
-use crate::tuple::{Point, Vector};
+use crate::tuple::{vector, Point, Vector};
 use std::any::Any;
 
 pub fn group() -> Group {
@@ -37,7 +37,7 @@ pub trait Geometry: 'static + AsAny + std::fmt::Debug + Sync {
     //fn as_any(&self) -> &dyn Any;// { self }
     fn is_similar(&self, other: &dyn Geometry) -> bool;
     fn intersect<'a>(&self, obj: &'a Shape, local_ray: &Ray) -> Vec<Intersection<'a>>;
-    fn normal_at(&self, local_point: Point) -> Vector;
+    fn normal_at(&self, local_point: Point, i: &Intersection) -> Vector;
     fn aabb(&self) -> Aabb;
 }
 
@@ -203,13 +203,12 @@ impl Shape {
     }
 
     pub fn local_intersect(&self, local_ray: &Ray) -> Vec<Intersection> {
-        self.geometry
-            .intersect(&self, local_ray)
+        self.geometry.intersect(&self, local_ray)
     }
 
-    pub fn normal_at(&self, world_point: Point) -> Vector {
+    pub fn normal_at(&self, world_point: Point, i: &Intersection) -> Vector {
         let obj_point = self.world_to_object(world_point);
-        let obj_normal = self.geometry.normal_at(obj_point);
+        let obj_normal = self.geometry.normal_at(obj_point, i);
         self.normal_to_world(obj_normal)
     }
 
@@ -418,6 +417,83 @@ impl From<Group> for BoundingGroup {
     }
 }
 
+pub fn build_bounding_tree(mut group: Group) -> BoundingGroup {
+    let n = group.items.len();
+    println!("{}", n);
+
+    if n <= 10 {
+        return group.into();
+    }
+
+    group.update_transform(Matrix::identity());
+    let aabbs: Vec<_> = group.items.iter_mut().map(SceneItem::update_aabb).collect();
+
+    let (extent, median) = compute_extents(&aabbs);
+
+    let criterion: Vec<_>;
+
+    if extent.x() >= extent.y() && extent.x() >= extent.z() {
+        criterion = aabbs
+            .iter()
+            .map(Aabb::center)
+            .map(|p| p.x() < median.x())
+            .collect();
+    } else if extent.y() >= extent.x() && extent.y() >= extent.z() {
+        criterion = aabbs
+            .iter()
+            .map(Aabb::center)
+            .map(|p| p.y() < median.y())
+            .collect();
+    } else {
+        criterion = aabbs
+            .iter()
+            .map(Aabb::center)
+            .map(|p| p.z() < median.z())
+            .collect();
+    }
+
+    let n1: usize = criterion.iter().map(|&b| if b { 1 } else { 0 }).sum();
+
+    if n1 == 0 || n1 == n {
+        return group.into();
+    }
+
+    let mut group1 = Group::default();
+    let mut group2 = Group::default();
+    for (c, item) in criterion.into_iter().zip(group.items) {
+        if c {
+            group1.add_child(item);
+        } else {
+            group2.add_child(item);
+        }
+    }
+
+    let mut result = BoundingGroup::default().with_transform(group.transform);
+    result.add_child(build_bounding_tree(group1));
+    result.add_child(build_bounding_tree(group2));
+    result
+}
+
+fn compute_extents(aabbs: &[Aabb]) -> (Vector, Vector) {
+    let n = aabbs.len();
+
+    let mut center_x: Vec<_> = aabbs.iter().map(Aabb::center).map(|p| p.x()).collect();
+    let mut center_y: Vec<_> = aabbs.iter().map(Aabb::center).map(|p| p.y()).collect();
+    let mut center_z: Vec<_> = aabbs.iter().map(Aabb::center).map(|p| p.z()).collect();
+    center_x.sort_unstable_by(|a, b| a.partial_cmp(&b).unwrap());
+    center_y.sort_unstable_by(|a, b| a.partial_cmp(&b).unwrap());
+    center_z.sort_unstable_by(|a, b| a.partial_cmp(&b).unwrap());
+
+    let extent = vector(
+        center_x[n - 1] - center_x[0],
+        center_y[n - 1] - center_y[0],
+        center_z[n - 1] - center_z[0],
+    );
+    let median = vector(center_x[n / 2], center_y[n / 2], center_z[n / 2]);
+
+    (extent, median)
+}
+
 /*impl PartialEq for dyn Shape + '_ {
     fn eq(&self, other: &Self) -> bool {
         self as *const _ == other as *const _
@@ -474,7 +550,7 @@ mod tests {
             vec![]
         }
 
-        fn normal_at(&self, obj_point: Point) -> Vector {
+        fn normal_at(&self, obj_point: Point, _: &Intersection) -> Vector {
             vector(obj_point.x(), obj_point.y(), obj_point.z())
         }
 
@@ -554,7 +630,7 @@ mod tests {
     fn normal_translated() {
         let mut s = test_shape();
         s.set_transform(translation(0, 1, 0));
-        let n = s.normal_at(point(0, 1.70711, 0.70711));
+        let n = s.normal_at(point(0, 1.70711, 0.70711), &Intersection::new(0.0, &s));
         assert_almost_eq!(n, vector(0, 0.70711, 0.70711));
     }
 
@@ -563,7 +639,10 @@ mod tests {
     fn normal_transformed() {
         let mut s = test_shape();
         s.set_transform(scaling(1, 0.5, 1) * rotation_z(PI / 5.0));
-        let n = s.normal_at(point(0, FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
+        let n = s.normal_at(
+            point(0, FRAC_1_SQRT_2, -FRAC_1_SQRT_2),
+            &Intersection::new(0.0, &s),
+        );
         assert_almost_eq!(n, vector(0, 0.97014, -0.24254));
     }
 
@@ -662,7 +741,7 @@ mod tests {
         g1.add_child(g2);
         g1.update_transform(Matrix::identity());
         let s = g1.items[0].as_group().unwrap().items[0].as_shape().unwrap();
-        let n = s.normal_at(point(1.7321, 1.1547, -5.5774));
+        let n = s.normal_at(point(1.7321, 1.1547, -5.5774), &Intersection::new(0.0, &s));
         assert_almost_eq!(n, vector(0.28570, 0.42854, -0.85716));
     }
 }

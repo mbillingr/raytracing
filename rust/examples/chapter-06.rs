@@ -3,7 +3,7 @@ use raytracing::color::color;
 use raytracing::lights::{Light, PointLight};
 use raytracing::live_preview::{live_preview, Message};
 use raytracing::materials::Phong;
-use raytracing::ray::{hit, Intersection, Ray};
+use raytracing::ray::{hit, Ray};
 use raytracing::shapes::sphere;
 use raytracing::tuple::{point, vector};
 use std::fs::File;
@@ -39,10 +39,12 @@ fn main() {
                 .collect();
             let h = hit(&intersections);
 
-            if let Some(Intersection { t, obj }) = h {
+            if let Some(intersection) = h {
+                let t = intersection.t;
+                let obj = intersection.obj;
                 let p = ray.position(t);
                 let eyev = -ray.direction();
-                let normalv = obj.normal_at(p);
+                let normalv = obj.normal_at(p, &intersection);
                 let color = obj.material().lighting(
                     &sphere(),
                     light.incoming_at(p),

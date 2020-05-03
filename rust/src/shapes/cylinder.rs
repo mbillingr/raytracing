@@ -103,7 +103,7 @@ impl Geometry for Cylinder {
         }
     }
 
-    fn normal_at(&self, p: Point) -> Vector {
+    fn normal_at(&self, p: Point, _: &Intersection) -> Vector {
         let dist = p.x().squared() + p.z().squared();
 
         if dist < 1.0 {
@@ -181,7 +181,9 @@ mod tests {
             (point(-1, 1, 0), vector(-1, 0, 0)),
         ] {
             let geometry = Cylinder::default();
-            assert_almost_eq!(geometry.normal_at(point), normal);
+            let dummy_shape = cylinder();
+            let i = Intersection::new(0.0, &dummy_shape);
+            assert_almost_eq!(geometry.normal_at(point, &i), normal);
         }
     }
 
@@ -234,7 +236,9 @@ mod tests {
             (point(0, 2, 0.5), vector(0, 1, 0)),
         ] {
             let geometry = Cylinder::new(1.0, 2.0, true);
-            assert_almost_eq!(geometry.normal_at(point), normal);
+            let dummy_shape = cylinder();
+            let i = Intersection::new(0.0, &dummy_shape);
+            assert_almost_eq!(geometry.normal_at(point, &i), normal);
         }
     }
 }

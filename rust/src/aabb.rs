@@ -34,6 +34,10 @@ impl Aabb {
         Aabb { min_p: p, max_p: p }
     }
 
+    pub fn center(&self) -> Point {
+        self.min_p + (self.max_p - self.min_p) / 2
+    }
+
     pub fn intersect(&self, r: &Ray) -> Option<(f64, f64)> {
         check_axis(
             self.min_p.x(),

@@ -2,15 +2,14 @@ use raytracing::camera::Camera;
 use raytracing::color::color;
 use raytracing::lights::PointLight;
 use raytracing::materials::Phong;
-use raytracing::math::Squared;
-use raytracing::matrix::{rotation_x, rotation_y, rotation_z, scaling, translation};
-use raytracing::shapes::{plane, Group, BoundingGroup};
+use raytracing::matrix::{rotation_y, translation};
+use raytracing::obj_loader::ObjParser;
+use raytracing::pattern::checkers_pattern;
+use raytracing::shapes::{build_bounding_tree, plane, Group};
 use raytracing::tuple::{point, vector};
 use raytracing::world::World;
 use std::f64::consts::PI;
 use std::fs::File;
-use raytracing::pattern::checkers_pattern;
-use raytracing::obj_loader::ObjParser;
 use std::io::Read;
 
 fn main() {
@@ -33,10 +32,13 @@ fn main() {
     world.add_shape(floor);
 
     let mut data = String::new();
-    File::open("../data/teapot.obj").unwrap().read_to_string(&mut data).unwrap();
+    File::open("../data/teapot.obj")
+        .unwrap()
+        .read_to_string(&mut data)
+        .unwrap();
     let teapot: Group = ObjParser::parse_str(&data).into();
-    let teapot = teapot.with_transform(rotation_y(PI/4.0));
-    let teapot: BoundingGroup = teapot.into();
+    let teapot = teapot.with_transform(rotation_y(PI / 4.0));
+    let teapot = build_bounding_tree(teapot);
     world.add_item(teapot.into());
 
     world.finalize_scene();
@@ -44,14 +46,11 @@ fn main() {
     let from = point(0, 5, -8);
     let to = point(0, 1, 0);
 
-    let mut camera = Camera::new(900, 450, PI / 3.0).with_view_transform(
-        from, to,
-        vector(0, 1, 0),
-    );
+    let mut camera = Camera::new(900, 450, PI / 3.0).with_view_transform(from, to, vector(0, 1, 0));
     camera.set_allowed_standard_error(1e-2);
     camera.set_min_samples(10);
     camera.set_focal_distance((to - from).len());
-    camera.set_aperture_size(1.0);
+    camera.set_aperture_size(0.1);
 
     let image = camera.render_live(&world, "Chapter 15");
 

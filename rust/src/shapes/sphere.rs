@@ -58,7 +58,7 @@ impl Geometry for Sphere {
         }
     }
 
-    fn normal_at(&self, local_point: Point) -> Vector {
+    fn normal_at(&self, local_point: Point, _: &Intersection) -> Vector {
         local_point - point(0, 0, 0)
     }
 
@@ -148,7 +148,9 @@ mod tests {
     #[test]
     fn normal_x() {
         let s = Sphere::new();
-        let n = s.normal_at(point(1, 0, 0));
+        let dummy_shape = sphere();
+        let dummy_intersection = Intersection::new(0.0, &dummy_shape);
+        let n = s.normal_at(point(1, 0, 0), &dummy_intersection);
         assert_almost_eq!(n, vector(1, 0, 0));
     }
 
@@ -156,7 +158,9 @@ mod tests {
     #[test]
     fn normal_y() {
         let s = Sphere::new();
-        let n = s.normal_at(point(0, 1, 0));
+        let dummy_shape = sphere();
+        let dummy_intersection = Intersection::new(0.0, &dummy_shape);
+        let n = s.normal_at(point(0, 1, 0), &dummy_intersection);
         assert_almost_eq!(n, vector(0, 1, 0));
     }
 
@@ -164,7 +168,9 @@ mod tests {
     #[test]
     fn normal_z() {
         let s = Sphere::new();
-        let n = s.normal_at(point(0, 0, 1));
+        let dummy_shape = sphere();
+        let dummy_intersection = Intersection::new(0.0, &dummy_shape);
+        let n = s.normal_at(point(0, 0, 1), &dummy_intersection);
         assert_almost_eq!(n, vector(0, 0, 1));
     }
 
@@ -173,7 +179,9 @@ mod tests {
     fn normal_any() {
         let s3 = f64::sqrt(3.0) / 3.0;
         let s = Sphere::new();
-        let n = s.normal_at(point(s3, s3, s3));
+        let dummy_shape = sphere();
+        let dummy_intersection = Intersection::new(0.0, &dummy_shape);
+        let n = s.normal_at(point(s3, s3, s3), &dummy_intersection);
         assert_almost_eq!(n, vector(s3, s3, s3));
     }
 
@@ -182,7 +190,9 @@ mod tests {
     fn normal_is_normalized() {
         let s3 = f64::sqrt(3.0) / 3.0;
         let s = Sphere::new();
-        let n = s.normal_at(point(s3, s3, s3));
+        let dummy_shape = sphere();
+        let dummy_intersection = Intersection::new(0.0, &dummy_shape);
+        let n = s.normal_at(point(s3, s3, s3), &dummy_intersection);
         assert_almost_eq!(n, n.normalized());
     }
 

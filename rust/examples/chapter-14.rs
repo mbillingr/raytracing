@@ -4,9 +4,7 @@ use raytracing::lights::PointLight;
 use raytracing::materials::Phong;
 use raytracing::math::Squared;
 use raytracing::matrix::{rotation_x, rotation_y, rotation_z, scaling, translation};
-use raytracing::shapes::{
-    bounding_group, group, sphere, Cylinder, SceneItem, Shape,
-};
+use raytracing::shapes::{bounding_group, group, sphere, Cylinder, SceneItem, Shape};
 use raytracing::tuple::{point, vector};
 use raytracing::world::World;
 use std::f64::consts::PI;
