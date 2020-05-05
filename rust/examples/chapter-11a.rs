@@ -25,7 +25,7 @@ fn main() {
         .with_specular(0.0);
 
     let floor = plane().with_material(floor_material.clone());
-    world.add_shape(floor);
+    world.add_item(floor);
 
     let sky = plane()
         .with_transform(translation(0, 1000, 0))
@@ -36,7 +36,7 @@ fn main() {
                 .with_diffuse(1.0)
                 .with_specular(0.0),
         );
-    world.add_shape(sky);
+    world.add_item(sky);
 
     let left = sphere()
         .with_transform(translation(-1.5, 1, 0.5))
@@ -48,7 +48,7 @@ fn main() {
                 .with_specular(0.8)
                 .with_reflective(1.0),
         );
-    world.add_shape(left);
+    world.add_item(left);
 
     let right = sphere()
         .with_transform(translation(1.5, 1, 0.5))
@@ -62,7 +62,7 @@ fn main() {
                 .with_transparency(1.0)
                 .with_refractive_index(1.5),
         );
-    world.add_shape(right);
+    world.add_item(right);
 
     let right = sphere()
         .with_transform(translation(1.5, 1, 0.5) * scaling(0.5, 0.5, 0.5))
@@ -76,7 +76,7 @@ fn main() {
                 .with_transparency(1.0)
                 .with_refractive_index(1.0),
         );
-    world.add_shape(right);
+    world.add_item(right);
 
     let mut camera = Camera::new(900, 450, PI / 3.0).with_view_transform(
         point(0, 1.5, -5),

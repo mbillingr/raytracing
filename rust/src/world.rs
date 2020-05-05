@@ -3,7 +3,7 @@ use crate::lights::{Light, LightRay, PointLight};
 use crate::materials::Phong;
 use crate::matrix::{scaling, Matrix};
 use crate::ray::{hit, Intersection, IntersectionState, Ray};
-use crate::shapes::{sphere, SceneItem, Shape};
+use crate::shapes::{sphere, SceneItem};
 use crate::tuple::{point, Point};
 
 pub struct World {
@@ -51,12 +51,8 @@ impl World {
         self.lights.push(Box::new(light));
     }
 
-    pub fn add_shape(&mut self, shape: Shape) {
-        self.objects.push(shape.into());
-    }
-
-    pub fn add_item(&mut self, item: SceneItem) {
-        self.objects.push(item);
+    pub fn add_item(&mut self, item: impl Into<SceneItem>) {
+        self.objects.push(item.into());
     }
 
     pub fn finalize_scene(&mut self) {
@@ -343,8 +339,8 @@ mod tests {
     fn shadow5() {
         let mut w = World::empty();
         w.add_light(PointLight::new(point(0, 0, -10), color(1, 1, 1)));
-        w.add_shape(sphere());
-        w.add_shape(sphere().with_transform(translation(0, 0, 10)));
+        w.add_item(sphere());
+        w.add_item(sphere().with_transform(translation(0, 0, 10)));
 
         let r = Ray::new(point(0, 0, 5), vector(0, 0, 1));
         let i = Intersection::new(4.0, w.objects[1].as_shape().unwrap());
@@ -376,7 +372,7 @@ mod tests {
         let mut shape = plane();
         shape.material_mut().set_reflective(0.5);
         shape.set_transform(translation(0, -1, 0));
-        w.add_shape(shape);
+        w.add_item(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
@@ -391,7 +387,7 @@ mod tests {
         let mut shape = plane();
         shape.material_mut().set_reflective(0.5);
         shape.set_transform(translation(0, -1, 0));
-        w.add_shape(shape);
+        w.add_item(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
@@ -406,7 +402,7 @@ mod tests {
         let mut shape = plane();
         shape.material_mut().set_reflective(0.5);
         shape.set_transform(translation(0, -1, 0));
-        w.add_shape(shape);
+        w.add_item(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
@@ -418,7 +414,7 @@ mod tests {
     #[test]
     fn infinite_reflection() {
         let mut w = World::empty();
-        w.add_shape(
+        w.add_item(
             plane().with_transform(translation(0, -1, 0)).with_material(
                 Phong::default()
                     .with_color(color(0, 0, 0))
@@ -428,7 +424,7 @@ mod tests {
                     .with_reflective(1.0),
             ),
         );
-        w.add_shape(
+        w.add_item(
             plane().with_transform(translation(0, 1, 0)).with_material(
                 Phong::default()
                     .with_color(color(0, 0, 0))
@@ -548,14 +544,14 @@ mod tests {
     #[test]
     fn refracted_shading() {
         let mut w = World::default();
-        w.add_shape(
+        w.add_item(
             plane().with_transform(translation(0, -1, 0)).with_material(
                 Phong::default()
                     .with_transparency(0.5)
                     .with_refractive_index(1.5),
             ),
         );
-        w.add_shape(
+        w.add_item(
             sphere()
                 .with_transform(translation(0, -3.5, -0.5))
                 .with_material(Phong::default().with_rgb(1.0, 0.0, 0.0).with_ambient(0.5)),
@@ -574,7 +570,7 @@ mod tests {
     #[test]
     fn schlick_shading() {
         let mut w = World::default();
-        w.add_shape(
+        w.add_item(
             plane().with_transform(translation(0, -1, 0)).with_material(
                 Phong::default()
                     .with_reflective(0.5)
@@ -582,7 +578,7 @@ mod tests {
                     .with_refractive_index(1.5),
             ),
         );
-        w.add_shape(
+        w.add_item(
             sphere()
                 .with_transform(translation(0, -3.5, -0.5))
                 .with_material(Phong::default().with_rgb(1.0, 0.0, 0.0).with_ambient(0.5)),

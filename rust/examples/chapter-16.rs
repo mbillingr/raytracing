@@ -123,7 +123,7 @@ fn main() {
     let floor = plane()
         .with_material(floor_material.clone())
         .with_transform(translation(0, 0, 2) * rotation_x(PI / 2.0));
-    world.add_shape(floor);
+    world.add_item(floor);
 
     let glass = Phong::new(color(0, 0, 0), 0.0, 0.0, 0.9, 500.0, 1.0, 1.0, 1.5);
 
@@ -136,7 +136,7 @@ fn main() {
     let lens = csg_intersection(a, b)
         .with_transform(translation(0.0, 0, 0))
         .with_cast_shadow(false);
-    world.add_item(lens.into());
+    world.add_item(lens);
 
     let mut dices = group();
 
@@ -168,7 +168,7 @@ fn main() {
         }
     }
 
-    world.add_item(build_bounding_tree(dices, 2).into());
+    world.add_item(build_bounding_tree(dices, 2));
 
     world.finalize_scene();
 

@@ -21,7 +21,7 @@ fn main() {
         .with_specular(0.0);
 
     let floor = plane().with_material(floor_material.clone());
-    world.add_shape(floor);
+    world.add_item(floor);
 
     let sky = plane()
         .with_transform(translation(0, 1000, 0))
@@ -32,7 +32,7 @@ fn main() {
                 .with_diffuse(1.0)
                 .with_specular(0.0),
         );
-    world.add_shape(sky);
+    world.add_item(sky);
 
     let front = sphere()
         .with_transform(translation(-1.5, 1, 0.5))
@@ -42,7 +42,7 @@ fn main() {
                 .with_diffuse(0.7)
                 .with_specular(0.3),
         );
-    world.add_shape(front);
+    world.add_item(front);
 
     let back = sphere()
         .with_transform(translation(0.5, 1, 10.5))
@@ -52,7 +52,7 @@ fn main() {
                 .with_diffuse(0.7)
                 .with_specular(0.3),
         );
-    world.add_shape(back);
+    world.add_item(back);
 
     let behind = sphere()
         .with_transform(translation(1.5, 1, -3.5))
@@ -62,7 +62,7 @@ fn main() {
                 .with_diffuse(0.7)
                 .with_specular(0.3),
         );
-    world.add_shape(behind);
+    world.add_item(behind);
 
     let middle = sphere()
         .with_transform(translation(2.0, 1, 4.5))
@@ -74,7 +74,7 @@ fn main() {
                 .with_specular(1.0)
                 .with_reflective(1.0),
         );
-    world.add_shape(middle);
+    world.add_item(middle);
 
     let mut camera = Camera::new(900, 450, PI / 3.0).with_view_transform(
         point(0, 1.5, -5),

@@ -29,7 +29,7 @@ fn main() {
                 .with_reflective(0.0),
         )
         .with_cast_shadow(false);
-    world.add_shape(middle);
+    world.add_item(middle);
 
     let floor_material = Phong::default()
         .with_color(color(1.0, 1.0, 1.0))
@@ -38,7 +38,7 @@ fn main() {
         .with_specular(0.0);
 
     let floor = plane().with_material(floor_material.clone());
-    world.add_shape(floor);
+    world.add_item(floor);
 
     let middle = cube()
         .with_transform(translation(0.0, 1, 0.0))
@@ -50,7 +50,7 @@ fn main() {
                 .with_specular(0.0)
                 .with_reflective(0.0),
         );
-    world.add_shape(middle);
+    world.add_item(middle);
 
     let mut camera = Camera::new(900, 450, PI / 3.0).with_view_transform(
         point(9, 15, -19),

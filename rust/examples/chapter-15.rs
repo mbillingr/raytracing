@@ -29,7 +29,7 @@ fn main() {
     let floor = plane()
         .with_material(floor_material.clone())
         .with_transform(translation(0, -1, 0));
-    world.add_shape(floor);
+    world.add_item(floor);
 
     let mut data = String::new();
     File::open("../data/teapot.obj")
@@ -40,7 +40,7 @@ fn main() {
     let teapot = teapot
         .with_transform(rotation_y(PI / 4.0) * rotation_x(-PI / 2.0) * scaling(0.2, 0.2, 0.2));
     let teapot = build_bounding_tree(teapot, 10);
-    world.add_item(teapot.into());
+    world.add_item(teapot);
 
     world.finalize_scene();
 

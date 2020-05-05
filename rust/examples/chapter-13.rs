@@ -36,19 +36,19 @@ fn main() {
         .with_reflective(1.0)
         .with_transparency(1.0)
         .with_refractive_index(1.3);
-    world.add_shape(floor);
+    world.add_item(floor);
 
     let water = planar_heightmap(-1000.0, 1000.0, -1.1, 1.1, -2.0, 1000.0, |x, z| {
         let r = (x * x + z * z).sqrt();
         -0.1 * (r * 10.0).sin() / r
     })
     .with_material(water_material.clone());
-    world.add_shape(water);
+    world.add_item(water);
 
     let drop = sphere()
         .with_transform(translation(0, 0.5, 0) * scaling(0.3, 0.3, 0.3))
         .with_material(water_material);
-    world.add_shape(drop);
+    world.add_item(drop);
 
     let sky = sphere()
         .with_transform(scaling(1000, 1000, 1000))
@@ -62,7 +62,7 @@ fn main() {
                 .with_diffuse(0.0)
                 .with_specular(0.0),
         );
-    world.add_shape(sky);
+    world.add_item(sky);
 
     for i in -5..5 {
         let x = i as f64 * 1.0 - 0.5;
@@ -79,7 +79,7 @@ fn main() {
                     .with_diffuse(1.0)
                     .with_specular(0.8),
             );
-        world.add_shape(right);
+        world.add_item(right);
     }
 
     let mut camera = Camera::new(900, 450, PI / 3.0).with_view_transform(
