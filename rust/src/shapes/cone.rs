@@ -4,6 +4,7 @@ use crate::math::Squared;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
 use crate::tuple::{vector, Point, Vector};
+use std::any::Any;
 use std::f64::INFINITY;
 
 pub fn cone() -> Shape {
@@ -65,6 +66,10 @@ fn check_cap(ray: &Ray, t: f64, radius: f64) -> bool {
 impl Geometry for Cone {
     fn duplicate(&self) -> Box<dyn Geometry> {
         Box::new(*self)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn is_similar(&self, other: &dyn Geometry) -> bool {

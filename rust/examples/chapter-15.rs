@@ -39,7 +39,7 @@ fn main() {
     let teapot: Group = ObjParser::parse_str(&data).into();
     let teapot = teapot
         .with_transform(rotation_y(PI / 4.0) * rotation_x(-PI / 2.0) * scaling(0.2, 0.2, 0.2));
-    let teapot = build_bounding_tree(teapot);
+    let teapot = build_bounding_tree(teapot, 10);
     world.add_item(teapot.into());
 
     world.finalize_scene();

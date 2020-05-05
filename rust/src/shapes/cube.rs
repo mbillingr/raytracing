@@ -2,6 +2,7 @@ use crate::aabb::Aabb;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
 use crate::tuple::{vector, Point, Vector};
+use std::any::Any;
 
 pub fn cube() -> Shape {
     Shape::new(Cube::new())
@@ -19,6 +20,10 @@ impl Cube {
 impl Geometry for Cube {
     fn duplicate(&self) -> Box<dyn Geometry> {
         Box::new(*self)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn is_similar(&self, other: &dyn Geometry) -> bool {

@@ -98,6 +98,10 @@ impl Phong {
         self.with_color(color(r, g, b))
     }
 
+    pub fn with_hsv(self, h: f64, s: f64, v: f64) -> Self {
+        self.with_color(Color::from_hsv(h, s, v))
+    }
+
     pub fn with_ambient(self, ambient: f64) -> Self {
         Phong { ambient, ..self }
     }

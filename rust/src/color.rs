@@ -20,6 +20,24 @@ impl Color {
         Color { red, green, blue }
     }
 
+    pub fn from_hsv(hue: f64, saturation: f64, value: f64) -> Self {
+        let hue = hue % 360.0;
+        let h = (hue / 60.0).floor() as i32;
+        let f = hue / 60.0 - h as f64;
+        let p = value * (1.0 - saturation);
+        let q = value * (1.0 - saturation * f);
+        let t = value * (1.0 - saturation * (1.0 - f));
+        let (red, green, blue) = match h {
+            1 => (q, value, p),
+            2 => (p, value, t),
+            3 => (p, q, value),
+            4 => (t, p, value),
+            5 => (value, p, q),
+            _ => (value, t, p),
+        };
+        Color { red, green, blue }
+    }
+
     pub fn red(&self) -> f64 {
         self.red
     }

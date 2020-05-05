@@ -3,6 +3,7 @@ use crate::approx_eq::{ApproximateEq, EPSILON};
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
 use crate::tuple::{Point, Vector};
+use std::any::Any;
 
 pub fn triangle(p1: Point, p2: Point, p3: Point) -> Shape {
     Shape::new(Triangle::new(p1, p2, p3))
@@ -47,6 +48,10 @@ impl Triangle {
 impl Geometry for Triangle {
     fn duplicate(&self) -> Box<dyn Geometry> {
         Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn is_similar(&self, other: &dyn Geometry) -> bool {
@@ -117,6 +122,10 @@ impl Geometry for SmoothTriangle {
         Box::new(self.clone())
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn is_similar(&self, other: &dyn Geometry) -> bool {
         other
             .as_any()
@@ -185,6 +194,10 @@ impl TriangleMesh {
 impl Geometry for TriangleMesh {
     fn duplicate(&self) -> Box<dyn Geometry> {
         Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn is_similar(&self, _: &dyn Geometry) -> bool {

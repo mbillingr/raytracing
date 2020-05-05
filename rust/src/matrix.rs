@@ -31,19 +31,19 @@ pub fn scaling(sx: impl Into<f64>, sy: impl Into<f64>, sz: impl Into<f64>) -> Ma
 }
 
 pub fn rotation_x(phi: impl Into<f64>) -> Matrix {
-    Matrix::Identity.rotate(phi.into(), [1.0, 0.0, 0.0])
+    Matrix::Identity.rotate(phi.into(), [1.0, 0.0, 0.0].into())
 }
 
 pub fn rotation_y(phi: impl Into<f64>) -> Matrix {
-    Matrix::Identity.rotate(phi.into(), [0.0, 1.0, 0.0])
+    Matrix::Identity.rotate(phi.into(), [0.0, 1.0, 0.0].into())
 }
 
 pub fn rotation_z(phi: impl Into<f64>) -> Matrix {
-    Matrix::Identity.rotate(phi.into(), [0.0, 0.0, 1.0])
+    Matrix::Identity.rotate(phi.into(), [0.0, 0.0, 1.0].into())
 }
 
 pub fn rotation(phi: impl Into<f64>, axis: Vector) -> Matrix {
-    Matrix::Identity.rotate(phi.into(), [axis.x(), axis.y(), axis.z()])
+    Matrix::Identity.rotate(phi.into(), [axis.x(), axis.y(), axis.z()].into())
 }
 
 pub fn view_transform(from: Point, to: Point, up: Vector) -> Matrix {
@@ -89,8 +89,8 @@ impl Matrix {
         Matrix::Scale([sx, sy, sz]) * self
     }
 
-    pub fn rotate(self, phi: f64, axis: Vector3<f64>) -> Self {
-        Matrix::Rotate(quaternion::axis_angle(axis, phi)) * self
+    pub fn rotate(self, phi: f64, axis: Vector) -> Self {
+        Matrix::Rotate(quaternion::axis_angle(axis.as_vec3(), phi)) * self
     }
 
     pub fn view(from: Point, to: Point, up: Vector) -> Self {
@@ -854,7 +854,7 @@ mod tests {
         assert_eq!(t * p, point(15, 0, 7));
 
         let t = Matrix::identity()
-            .rotate(PI / 2.0, [1.0, 0.0, 0.0])
+            .rotate(PI / 2.0, [1.0, 0.0, 0.0].into())
             .scale(5.0, 5.0, 5.0)
             .translate(10.0, 5.0, 7.0);
         assert_eq!(t * p, point(15, 0, 7));

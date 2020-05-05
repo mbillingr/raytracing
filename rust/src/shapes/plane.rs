@@ -3,6 +3,7 @@ use crate::approx_eq::EPSILON;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
 use crate::tuple::{Point, Vector};
+use std::any::Any;
 use std::f64::INFINITY;
 
 pub fn plane() -> Shape {
@@ -21,6 +22,10 @@ impl Plane {
 impl Geometry for Plane {
     fn duplicate(&self) -> Box<dyn Geometry> {
         Box::new(*self)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn is_similar(&self, other: &dyn Geometry) -> bool {

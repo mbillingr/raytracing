@@ -3,6 +3,7 @@ use crate::approx_eq::EPSILON;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
 use crate::tuple::{vector, Point, Vector};
+use std::any::Any;
 use std::sync::Arc;
 
 pub fn planar_heightmap(
@@ -80,6 +81,10 @@ impl std::fmt::Debug for PlanarHeightmap {
 impl Geometry for PlanarHeightmap {
     fn duplicate(&self) -> Box<dyn Geometry> {
         Box::new(self.clone())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn is_similar(&self, other: &dyn Geometry) -> bool {

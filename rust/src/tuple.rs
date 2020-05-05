@@ -1,7 +1,7 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use vecmath::{
     vec3_cross, vec4_add, vec4_dot, vec4_inv_len, vec4_len, vec4_normalized, vec4_scale,
-    vec4_square_len, vec4_sub, Vector4,
+    vec4_square_len, vec4_sub, Vector3, Vector4,
 };
 
 pub fn point(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>) -> Point {
@@ -104,6 +104,16 @@ impl Vector {
 
     pub fn reflect(&self, normal: &Self) -> Self {
         *self - *normal * (2.0 * self.dot(normal))
+    }
+
+    pub fn as_vec3(&self) -> Vector3<f64> {
+        [self.x(), self.y(), self.z()]
+    }
+}
+
+impl From<[f64; 3]> for Vector {
+    fn from([x, y, z]: [f64; 3]) -> Self {
+        Vector::new(x, y, z)
     }
 }
 

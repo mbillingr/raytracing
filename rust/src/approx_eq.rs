@@ -151,6 +151,7 @@ impl ApproximateEq<Shape> for SceneItem {
             Primitive(a) => a.approx_eq(other),
             Compound(g) => g.approx_eq(other),
             Bounded(b) => b.approx_eq(other),
+            CsgPair(_) => false,
         }
     }
 }
@@ -162,6 +163,7 @@ impl ApproximateEq<SceneItem> for Shape {
             Primitive(b) => self.approx_eq(b),
             Compound(g) => self.approx_eq(g),
             Bounded(b) => self.approx_eq(b),
+            CsgPair(_) => false,
         }
     }
 }

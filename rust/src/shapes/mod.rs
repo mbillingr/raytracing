@@ -1,4 +1,5 @@
 mod cone;
+mod csg;
 mod cube;
 mod cylinder;
 pub mod planar_heightmap;
@@ -7,6 +8,7 @@ mod sphere;
 mod triangle;
 
 pub use cone::cone;
+pub use csg::{csg_difference, csg_intersection, csg_union, CsgOp, CsgPair};
 pub use cube::cube;
 pub use cylinder::{cylinder, Cylinder};
 pub use planar_heightmap::planar_heightmap;
@@ -32,13 +34,19 @@ pub fn bounding_group() -> BoundingGroup {
     BoundingGroup::default()
 }
 
-pub trait Geometry: 'static + AsAny + std::fmt::Debug + Sync {
+pub trait Geometry: 'static + std::fmt::Debug + Sync {
     fn duplicate(&self) -> Box<dyn Geometry>;
-    //fn as_any(&self) -> &dyn Any;// { self }
+    fn as_any(&self) -> &dyn Any; // { self }
     fn is_similar(&self, other: &dyn Geometry) -> bool;
-    fn intersect<'a>(&self, obj: &'a Shape, local_ray: &Ray) -> Vec<Intersection<'a>>;
+    fn intersect<'a>(&'a self, obj: &'a Shape, local_ray: &Ray) -> Vec<Intersection<'a>>;
     fn normal_at(&self, local_point: Point, i: &Intersection) -> Vector;
     fn aabb(&self) -> Aabb;
+
+    fn contains(&self, _shape: &Shape) -> bool {
+        false
+    }
+
+    fn update_transform(&mut self, _t: Matrix) {}
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +54,7 @@ pub enum SceneItem {
     Primitive(Shape),
     Compound(Group),
     Bounded(BoundingGroup),
+    CsgPair(CsgPair),
 }
 
 impl SceneItem {
@@ -62,6 +71,7 @@ impl SceneItem {
             _ => None,
         }
     }
+
     pub fn as_group(&self) -> Option<&Group> {
         match self {
             SceneItem::Compound(group) => Some(group),
@@ -69,9 +79,16 @@ impl SceneItem {
         }
     }
 
-    pub fn as_group_shape_mut(&mut self) -> Option<&mut Group> {
+    pub fn as_group_mut(&mut self) -> Option<&mut Group> {
         match self {
             SceneItem::Compound(group) => Some(group),
+            _ => None,
+        }
+    }
+
+    pub fn as_csg(&self) -> Option<&CsgPair> {
+        match self {
+            SceneItem::CsgPair(pair) => Some(pair),
             _ => None,
         }
     }
@@ -82,6 +99,7 @@ impl SceneItem {
             Primitive(shape) => Primitive(shape.with_transform(t)),
             Compound(group) => Compound(group.with_transform(t)),
             Bounded(group) => Bounded(group.with_transform(t)),
+            CsgPair(pair) => CsgPair(pair.with_transform(t)),
         }
     }
 
@@ -90,6 +108,7 @@ impl SceneItem {
             SceneItem::Primitive(shape) => shape.intersect(world_ray),
             SceneItem::Compound(group) => group.intersect(world_ray),
             SceneItem::Bounded(group) => group.intersect(world_ray),
+            SceneItem::CsgPair(pair) => pair.intersect(world_ray),
         }
     }
 
@@ -98,6 +117,7 @@ impl SceneItem {
             SceneItem::Primitive(shape) => shape.cast_shadow(),
             SceneItem::Compound(group) => group.cast_shadow,
             SceneItem::Bounded(bgroup) => bgroup.group.cast_shadow,
+            SceneItem::CsgPair(pair) => pair.cast_shadow(),
         }
     }
 
@@ -106,6 +126,7 @@ impl SceneItem {
             SceneItem::Primitive(shape) => shape.update_transform(t),
             SceneItem::Compound(group) => group.update_transform(t),
             SceneItem::Bounded(group) => group.group.update_transform(t),
+            SceneItem::CsgPair(pair) => pair.update_transform(t),
         }
     }
 
@@ -122,14 +143,36 @@ impl SceneItem {
             (Bounded(b), Primitive(s)) | (Primitive(s), Bounded(b)) => {
                 is_group_similar_to_shape(&b.group, s)
             }
+            (CsgPair(a), CsgPair(b)) => a.is_similar(b),
+            (CsgPair(_), _) | (_, CsgPair(_)) => false,
         }
     }
 
     pub fn update_aabb(&mut self) -> Aabb {
         match self {
             SceneItem::Primitive(shape) => shape.aabb(),
-            SceneItem::Compound(group) => group.aabb(),
+            SceneItem::Compound(group) => group.update_aabb(),
             SceneItem::Bounded(bgroup) => bgroup.update_aabb().clone(),
+            SceneItem::CsgPair(pair) => pair.update_aabb(),
+        }
+    }
+
+    pub fn aabb(&self) -> Aabb {
+        match self {
+            SceneItem::Primitive(shape) => shape.aabb(),
+            SceneItem::Compound(group) => group.aabb(),
+            SceneItem::Bounded(bgroup) => bgroup.aabb.clone(),
+            SceneItem::CsgPair(pair) => pair.aabb(),
+        }
+    }
+
+    pub fn contains(&self, shape: &Shape) -> bool {
+        match self {
+            SceneItem::Primitive(s) => std::ptr::eq(s, shape) || s.geometry.contains(shape),
+            SceneItem::Compound(group) | SceneItem::Bounded(BoundingGroup { group, .. }) => {
+                group.items.iter().any(|item| item.contains(shape))
+            }
+            SceneItem::CsgPair(pair) => pair.contains(shape),
         }
     }
 }
@@ -141,6 +184,7 @@ pub fn is_group_similar_to_shape(g: &Group, s: &Shape) -> bool {
             SceneItem::Primitive(gs) => gs.is_similar(s),
             SceneItem::Compound(gg) => is_group_similar_to_shape(gg, s),
             SceneItem::Bounded(bg) => is_group_similar_to_shape(&bg.group, s),
+            SceneItem::CsgPair(_) => false,
         }
 }
 
@@ -159,6 +203,12 @@ impl From<Group> for SceneItem {
 impl From<BoundingGroup> for SceneItem {
     fn from(group: BoundingGroup) -> SceneItem {
         SceneItem::Bounded(group)
+    }
+}
+
+impl From<CsgPair> for SceneItem {
+    fn from(pair: CsgPair) -> SceneItem {
+        SceneItem::CsgPair(pair)
     }
 }
 
@@ -254,6 +304,7 @@ impl Shape {
     pub fn update_transform(&mut self, t: Matrix) {
         self.cumulative_transform = t * self.transform;
         self.inv_cumulative_transform = self.cumulative_transform.inverse();
+        self.geometry.update_transform(self.cumulative_transform);
     }
 
     pub fn world_to_object(&self, p: Point) -> Point {
@@ -326,6 +377,11 @@ impl Group {
         !self.items.is_empty()
     }
 
+    pub fn with_child(mut self, child: impl Into<SceneItem>) -> Self {
+        self.add_child(child);
+        self
+    }
+
     pub fn add_child(&mut self, child: impl Into<SceneItem>) {
         let child = child.into();
         self.items.push(child);
@@ -362,10 +418,18 @@ impl Group {
         }
     }
 
-    pub fn aabb(&mut self) -> Aabb {
+    pub fn update_aabb(&mut self) -> Aabb {
         let mut aabb = Aabb::empty();
         for child in &mut self.items {
             aabb = aabb.merge(&child.update_aabb());
+        }
+        aabb
+    }
+
+    pub fn aabb(&self) -> Aabb {
+        let mut aabb = Aabb::empty();
+        for child in &self.items {
+            aabb = aabb.merge(&child.aabb());
         }
         aabb
     }
@@ -417,10 +481,10 @@ impl From<Group> for BoundingGroup {
     }
 }
 
-pub fn build_bounding_tree(mut group: Group) -> BoundingGroup {
+pub fn build_bounding_tree(mut group: Group, max_leaf_size: usize) -> BoundingGroup {
     let n = group.items.len();
 
-    if n <= 10 {
+    if n <= max_leaf_size {
         return group.into();
     }
 
@@ -468,8 +532,8 @@ pub fn build_bounding_tree(mut group: Group) -> BoundingGroup {
     }
 
     let mut result = BoundingGroup::default().with_transform(group.transform);
-    result.add_child(build_bounding_tree(group1));
-    result.add_child(build_bounding_tree(group2));
+    result.add_child(build_bounding_tree(group1, max_leaf_size));
+    result.add_child(build_bounding_tree(group2, max_leaf_size));
     result
 }
 
@@ -498,7 +562,7 @@ fn compute_extents(aabbs: &[Aabb]) -> (Vector, Vector) {
         self as *const _ == other as *const _
     }
 }*/
-
+/*
 pub trait AsAny: Any {
     fn as_any(&self) -> &dyn Any;
 }
@@ -508,7 +572,7 @@ impl<T: Any> AsAny for T {
         self
     }
 }
-
+*/
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -538,6 +602,10 @@ mod tests {
     impl Geometry for TestGeometry {
         fn duplicate(&self) -> Box<dyn Geometry> {
             Box::new(self.clone())
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
         }
 
         fn is_similar(&self, _: &dyn Geometry) -> bool {

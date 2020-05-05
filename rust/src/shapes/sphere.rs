@@ -3,6 +3,7 @@ use crate::materials::Phong;
 use crate::ray::{Intersection, Ray};
 use crate::shapes::{Geometry, Shape};
 use crate::tuple::{point, Point, Vector};
+use std::any::Any;
 
 pub fn sphere() -> Shape {
     Shape::new(Sphere::new())
@@ -34,6 +35,10 @@ impl Sphere {
 impl Geometry for Sphere {
     fn duplicate(&self) -> Box<dyn Geometry> {
         Box::new(*self)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 
     fn is_similar(&self, other: &dyn Geometry) -> bool {
