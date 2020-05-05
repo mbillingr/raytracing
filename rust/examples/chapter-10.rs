@@ -27,7 +27,7 @@ fn main() {
         .with_material(
             Phong::default()
                 .with_color(color(0.8, 0.8, 1))
-                .with_ambient(1.0)
+                .with_emissive(1.0)
                 .with_diffuse(1.0)
                 .with_specular(0.0),
         );

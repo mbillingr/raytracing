@@ -83,11 +83,9 @@ mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
     use crate::color::{color, BLACK, WHITE};
-    use crate::lights::{Light, PointLight};
-    use crate::materials::Phong;
     use crate::matrix::{scaling, translation};
     use crate::shapes::sphere;
-    use crate::tuple::{point, vector};
+    use crate::tuple::point;
 
     fn test_pattern() -> Pattern {
         Pattern::new(|p| color(p.x(), p.y(), p.z()))
@@ -165,12 +163,13 @@ mod tests {
         assert_almost_eq!(pattern.at(point(-1.1, 0, 0)), WHITE);
     }
 
+    /* This test is no longer useful because we do not compute pattern color within material.lighting()
     /// Lighting with a pattern applied
     #[test]
     fn stripe_light() {
         let m = Phong::default()
             .with_pattern(stripe_pattern(WHITE, BLACK))
-            .with_ambient(1.0)
+            .with_emissive(1.0)
             .with_diffuse(0.0)
             .with_specular(0.0);
         let eyev = vector(0, 0, -1);
@@ -196,7 +195,7 @@ mod tests {
         );
         assert_almost_eq!(c1, WHITE);
         assert_almost_eq!(c2, BLACK);
-    }
+    }*/
 
     /// A gradient linearly interpolates between colors
     #[test]

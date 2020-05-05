@@ -1,5 +1,5 @@
 use crate::color::{color, Color, BLACK};
-use crate::lights::{Light, LightRay, PointLight};
+use crate::lights::{IncomingLight, Light, PointLight};
 use crate::materials::Phong;
 use crate::matrix::{scaling, Matrix};
 use crate::ray::{hit, Intersection, IntersectionState, Ray};
@@ -24,11 +24,15 @@ impl Default for World {
                     .with_material(
                         Phong::default()
                             .with_color(color(0.8, 1.0, 0.6))
+                            .with_emissive(0.1)
                             .with_diffuse(0.7)
                             .with_specular(0.2),
                     )
                     .into(),
-                sphere().with_transform(scaling(0.5, 0.5, 0.5)).into(),
+                sphere()
+                    .with_material(Phong::default().with_emissive(0.1))
+                    .with_transform(scaling(0.5, 0.5, 0.5))
+                    .into(),
             ],
         )
     }
@@ -75,27 +79,32 @@ impl World {
 
     fn shade_hit(&self, comps: IntersectionState, remaining_bounces: u32) -> Color {
         let material = comps.obj.material();
+
+        let surface_color = material.color_at(&comps);
+
         let surface = self.lights.iter().fold(BLACK, |color, light| {
-            let lighting = light.incoming_at(comps.over_point);
+            let incoming_light = light.incoming_at(comps.over_point);
+            let in_shadow = self.is_shadowed(&incoming_light, comps.over_point);
             color
                 + comps.obj.material().lighting(
-                    &comps.obj,
-                    lighting,
-                    comps.point,
+                    surface_color,
+                    incoming_light,
                     comps.eyev,
                     comps.normalv,
-                    self.is_shadowed(&lighting, comps.over_point),
+                    in_shadow,
                 )
         });
+
+        let emissive = surface_color * material.emissive();
 
         let reflected = self.reflected_color(&comps, remaining_bounces);
         let refracted = self.refracted_color(&comps, remaining_bounces);
 
         if material.reflective() > 0.0 && material.transparency() > 0.0 {
             let reflectance = comps.schlick();
-            surface + reflected * reflectance + refracted * (1.0 - reflectance)
+            surface + reflected * reflectance + refracted * (1.0 - reflectance) + emissive
         } else {
-            surface + reflected + refracted
+            surface + reflected + refracted + emissive
         }
     }
 
@@ -126,10 +135,13 @@ impl World {
         xs
     }
 
-    pub fn is_shadowed(&self, light: &LightRay, p: Point) -> bool {
-        hit(&self.intersect_shadow(&Ray::new(p, light.direction)))
-            .map(|i| i.t < (light.origin - p).len())
-            .unwrap_or(false)
+    pub fn is_shadowed(&self, light: &IncomingLight, p: Point) -> bool {
+        match light {
+            IncomingLight::Ray(lr) => hit(&self.intersect_shadow(&Ray::new(p, lr.direction)))
+                .map(|i| i.t < (lr.origin - p).len())
+                .unwrap_or(false),
+            IncomingLight::Omni(_) => false,
+        }
     }
 
     fn reflected_color(&self, comps: &IntersectionState, remaining_bounces: u32) -> Color {
@@ -276,14 +288,14 @@ mod tests {
             .unwrap()
             .material()
             .clone()
-            .with_ambient(1.0);
+            .with_emissive(1.0);
         w.objects[0].as_shape_mut().unwrap().set_material(m0);
         let m1 = w.objects[1]
             .as_shape()
             .unwrap()
             .material()
             .clone()
-            .with_ambient(1.0);
+            .with_emissive(1.0);
         w.objects[1]
             .as_shape_mut()
             .unwrap()
@@ -346,7 +358,7 @@ mod tests {
         let i = Intersection::new(4.0, w.objects[1].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
         let c = w.shade_hit(comps, 0);
-        assert_almost_eq!(c, color(0.1, 0.1, 0.1));
+        assert_almost_eq!(c, BLACK);
     }
 
     /// The reflected color of a nonreflective material
@@ -358,7 +370,7 @@ mod tests {
             .as_shape_mut()
             .unwrap()
             .material_mut()
-            .set_ambient(1.0);
+            .set_emissive(1.0);
         let i = Intersection::new(1.0, w.objects[1].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
         let c = w.reflected_color(&comps, 1);
@@ -392,7 +404,7 @@ mod tests {
         let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
         let c = w.shade_hit(comps, 1);
-        assert_almost_eq!(c, color(0.87676, 0.92434, 0.82917));
+        assert_almost_eq!(c, color(0.77676, 0.82434, 0.72917));
     }
 
     /// The reflected color at maximum recursive depth
@@ -418,7 +430,7 @@ mod tests {
             plane().with_transform(translation(0, -1, 0)).with_material(
                 Phong::default()
                     .with_color(color(0, 0, 0))
-                    .with_ambient(1.0)
+                    .with_emissive(1.0)
                     .with_diffuse(0.0)
                     .with_specular(0.0)
                     .with_reflective(1.0),
@@ -428,7 +440,7 @@ mod tests {
             plane().with_transform(translation(0, 1, 0)).with_material(
                 Phong::default()
                     .with_color(color(0, 0, 0))
-                    .with_ambient(1.0)
+                    .with_emissive(1.0)
                     .with_diffuse(0.0)
                     .with_specular(0.0)
                     .with_reflective(1.0),
@@ -509,7 +521,7 @@ mod tests {
             .as_shape_mut()
             .unwrap()
             .material_mut()
-            .set_ambient(1.0);
+            .set_emissive(1.0);
         w.objects[0]
             .as_shape_mut()
             .unwrap()
@@ -554,7 +566,7 @@ mod tests {
         w.add_item(
             sphere()
                 .with_transform(translation(0, -3.5, -0.5))
-                .with_material(Phong::default().with_rgb(1.0, 0.0, 0.0).with_ambient(0.5)),
+                .with_material(Phong::default().with_rgb(1.0, 0.0, 0.0).with_emissive(0.5)),
         );
 
         let floor = w.objects[2].as_shape().unwrap();
@@ -563,7 +575,7 @@ mod tests {
         let xs = intersections![Intersection::new(SQRT_2, floor),];
         let comps = xs[0].prepare_computations(&r, &xs);
         let c = w.shade_hit(comps, 5);
-        assert_almost_eq!(c, color(0.93642, 0.68642, 0.68642));
+        assert_almost_eq!(c, color(0.83642, 0.58642, 0.58642));
     }
 
     /// shade-hit() with a reflective, transparent material
@@ -581,7 +593,7 @@ mod tests {
         w.add_item(
             sphere()
                 .with_transform(translation(0, -3.5, -0.5))
-                .with_material(Phong::default().with_rgb(1.0, 0.0, 0.0).with_ambient(0.5)),
+                .with_material(Phong::default().with_rgb(1.0, 0.0, 0.0).with_emissive(0.5)),
         );
 
         let floor = w.objects[2].as_shape().unwrap();
@@ -590,6 +602,6 @@ mod tests {
         let xs = intersections![Intersection::new(SQRT_2, floor),];
         let comps = xs[0].prepare_computations(&r, &xs);
         let c = w.shade_hit(comps, 5);
-        assert_almost_eq!(c, color(0.93391, 0.69643, 0.69243));
+        assert_almost_eq!(c, color(0.83391, 0.59643, 0.59243));
     }
 }

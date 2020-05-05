@@ -1,6 +1,6 @@
 use raytracing::camera::Camera;
 use raytracing::color::color;
-use raytracing::lights::PointLight;
+use raytracing::lights::{AmbientLight, PointLight};
 use raytracing::materials::Phong;
 use raytracing::math::Squared;
 use raytracing::matrix::{rotation_x, rotation_y, rotation_z, scaling, translation};
@@ -41,6 +41,7 @@ fn build_approx_torus(r1: f64, r2: f64, n_segments: u16, mat: Phong) -> SceneIte
 fn main() {
     let mut world = World::empty();
 
+    world.add_light(AmbientLight::new(color(0.3, 0.3, 0.3)));
     world.add_light(PointLight::new(point(-10, 10, -10), color(1, 1, 1)));
 
     world.add_item(

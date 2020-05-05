@@ -14,7 +14,6 @@ pub fn glass_sphere() -> Shape {
     sphere().with_material(
         Phong::default()
             .with_rgb(1.0, 1.0, 1.0)
-            .with_ambient(0.01)
             .with_diffuse(0.1)
             .with_specular(0.9)
             .with_shininess(250.0)

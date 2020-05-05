@@ -1,7 +1,7 @@
 use rand::{thread_rng, Rng};
 use raytracing::camera::Camera;
 use raytracing::color::color;
-use raytracing::lights::PointLight;
+use raytracing::lights::{AmbientLight, PointLight};
 use raytracing::materials::Phong;
 use raytracing::matrix::{rotation_x, rotation_z, scaling, translation, Matrix};
 use raytracing::pattern::checkers_pattern;
@@ -109,6 +109,7 @@ fn dice_body(mat: Phong) -> SceneItem {
 fn main() {
     let mut world = World::empty();
 
+    world.add_light(AmbientLight::new(color(0.5, 0.5, 0.5)));
     world.add_light(PointLight::new(point(-9, 8, -7), color(1, 1, 1)));
 
     let floor_material = Phong::default()
@@ -116,7 +117,6 @@ fn main() {
             checkers_pattern(color(0.75, 0.75, 0.75), color(0.9, 0.9, 0.9))
                 .with_transform(scaling(0.1, 0.1, 0.1)),
         )
-        .with_ambient(0.5)
         .with_diffuse(0.5)
         .with_specular(0.0);
 
@@ -144,14 +144,10 @@ fn main() {
         for j in -4..=4 {
             let mut rnd = thread_rng();
             let hue = rnd.gen_range(0.0, 360.0);
-            let mat1 = Phong::default()
-                .with_hsv(hue, 0.8, 1.0)
-                .with_ambient(0.5)
-                .with_diffuse(0.5);
+            let mat1 = Phong::default().with_hsv(hue, 0.8, 1.0).with_diffuse(1.0);
             let mat2 = Phong::default()
                 .with_hsv(hue + 180.0, 0.8, 1.0)
-                .with_ambient(0.5)
-                .with_diffuse(0.5);
+                .with_diffuse(1.0);
             let size = rnd.gen_range(0.05, 0.1);
             let pos_x = i as f64 * 0.4 + rnd.gen_range(-0.1, 0.1);
             let pos_y = j as f64 * 0.4 + rnd.gen_range(-0.1, 0.1);

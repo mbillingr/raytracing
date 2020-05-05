@@ -20,7 +20,6 @@ fn main() {
             color(0.25, 0.25, 0.75),
             color(0.25, 0.75, 0.25),
         ))
-        .with_ambient(0.25)
         .with_diffuse(0.9)
         .with_specular(0.0);
 
@@ -30,7 +29,6 @@ fn main() {
 
     let water_material = Phong::default()
         .with_color(color(0.1, 0.1, 0.5))
-        .with_ambient(0.0)
         .with_diffuse(0.5)
         .with_specular(0.9)
         .with_reflective(1.0)
@@ -53,7 +51,7 @@ fn main() {
                     gradient_pattern(color(0.9, 0.9, 1), color(0.2, 0.2, 0.8))
                         .with_transform(rotation_z(PI / 2.0)),
                 )
-                .with_ambient(1.0)
+                .with_emissive(1.0)
                 .with_diffuse(0.0)
                 .with_specular(0.0),
         );
@@ -70,7 +68,6 @@ fn main() {
             .with_material(
                 Phong::default()
                     .with_color(color(1, 0.2, 0.3))
-                    .with_ambient(0.5)
                     .with_diffuse(1.0)
                     .with_specular(0.8),
             );

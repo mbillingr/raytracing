@@ -18,23 +18,22 @@ fn main() {
         color(1.5, 1.5, 1.5),
     ));
 
-    let middle = sphere()
+    let light_shape = sphere()
         .with_transform(translation(-5, 2, -5) * scaling(2, 2, 2))
         .with_material(
             Phong::default()
                 .with_rgb(1.0, 1.0, 1.0)
-                .with_ambient(1.0)
+                .with_emissive(1.0)
                 .with_diffuse(0.0)
                 .with_specular(0.0)
                 .with_reflective(0.0),
         )
         .with_cast_shadow(false);
-    world.add_item(middle);
+    world.add_item(light_shape);
 
     let floor_material = Phong::default()
         .with_color(color(1.0, 1.0, 1.0))
         .with_diffuse(0.8)
-        .with_ambient(0.2)
         .with_specular(0.0);
 
     let floor = plane().with_material(floor_material.clone());
@@ -45,7 +44,6 @@ fn main() {
         .with_material(
             Phong::default()
                 .with_rgb(1.0, 1.0, 1.0)
-                .with_ambient(0.2)
                 .with_diffuse(0.8)
                 .with_specular(0.0)
                 .with_reflective(0.0),

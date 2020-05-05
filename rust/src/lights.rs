@@ -9,7 +9,13 @@ use std::any::Any;
 pub trait Light: Sync + 'static {
     fn as_any(&self) -> &dyn Any;
     fn is_similar(&self, other: &dyn Light) -> bool;
-    fn incoming_at(&self, point: Point) -> LightRay;
+    fn incoming_at(&self, point: Point) -> IncomingLight;
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum IncomingLight {
+    Ray(LightRay),
+    Omni(Color),
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -58,12 +64,45 @@ impl Light for PointLight {
             .unwrap_or(false)
     }
 
-    fn incoming_at(&self, point: Point) -> LightRay {
-        LightRay {
+    fn incoming_at(&self, point: Point) -> IncomingLight {
+        IncomingLight::Ray(LightRay {
             origin: self.position,
             direction: (self.position - point).normalized(),
             color: self.intensity,
-        }
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct AmbientLight {
+    intensity: Color,
+}
+
+impl AmbientLight {
+    pub fn new(intensity: Color) -> Self {
+        AmbientLight { intensity }
+    }
+
+    pub fn intensity(&self) -> Color {
+        self.intensity
+    }
+}
+
+impl Light for AmbientLight {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_similar(&self, other: &dyn Light) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .map(|other| self.intensity().approx_eq(&other.intensity()))
+            .unwrap_or(false)
+    }
+
+    fn incoming_at(&self, _: Point) -> IncomingLight {
+        IncomingLight::Omni(self.intensity())
     }
 }
 
@@ -113,15 +152,15 @@ impl Light for SphereLight {
             .unwrap_or(false)
     }
 
-    fn incoming_at(&self, point: Point) -> LightRay {
+    fn incoming_at(&self, point: Point) -> IncomingLight {
         let p: [f64; 3] = UnitSphere.sample(&mut thread_rng());
         let origin = self.position + self.radius * vector(p[0], p[1], p[2]);
 
-        LightRay {
+        IncomingLight::Ray(LightRay {
             origin,
             direction: (origin - point).normalized(),
             color: self.intensity,
-        }
+        })
     }
 }
 

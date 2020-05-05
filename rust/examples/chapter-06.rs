@@ -15,11 +15,7 @@ fn main() {
     let (h, tx) = live_preview(width, height, "Chapter 6");
 
     let mut obj = sphere();
-    obj.set_material(
-        Phong::default()
-            .with_color(color(0.2, 0.8, 0.9))
-            .with_shininess(20.0),
-    );
+    obj.set_material(Phong::default().with_shininess(20.0));
 
     let scene = vec![obj];
     let light = PointLight::new(point(1, 9, -10), color(1, 1, 1));
@@ -46,9 +42,8 @@ fn main() {
                 let eyev = -ray.direction();
                 let normalv = obj.normal_at(p, &intersection);
                 let color = obj.material().lighting(
-                    &sphere(),
+                    color(0.2, 0.8, 0.9),
                     light.incoming_at(p),
-                    p,
                     eyev,
                     normalv,
                     false,
