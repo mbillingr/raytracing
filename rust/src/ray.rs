@@ -3,7 +3,7 @@ use crate::matrix::Matrix;
 use crate::shapes::Shape;
 use crate::tuple::{Point, Vector};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Ray {
     origin: Point,
     direction: Vector,
@@ -157,26 +157,30 @@ pub struct IntersectionState<'a> {
 
 impl IntersectionState<'_> {
     pub fn schlick(&self) -> f64 {
-        let mut cos_en = self.eyev.dot(&self.normalv);
+        schlick(self.eyev, self.normalv, self.n1, self.n2)
+    }
+}
 
-        if self.n1 > self.n2 {
-            let n = self.n1 / self.n2;
-            let sin2_t = n * n * (1.0 - cos_en * cos_en);
-            if sin2_t > 1.0 {
-                return 1.0;
-            }
+pub fn schlick(eyev: Vector, normalv: Vector, n1: f64, n2: f64) -> f64 {
+    let mut cos_en = eyev.dot(&normalv);
 
-            let cos_t = (1.0 - sin2_t).sqrt();
-            cos_en = cos_t
+    if n1 > n2 {
+        let n = n1 / n2;
+        let sin2_t = n * n * (1.0 - cos_en * cos_en);
+        if sin2_t > 1.0 {
+            return 1.0;
         }
 
-        let r0 = sqr((self.n1 - self.n2) / (self.n1 + self.n2));
-
-        let tmp = 1.0 - cos_en;
-        let tmp_pow_2 = tmp * tmp;
-        let tmp_pow_5 = tmp_pow_2 * tmp_pow_2 * tmp;
-        r0 + (1.0 - r0) * tmp_pow_5
+        let cos_t = (1.0 - sin2_t).sqrt();
+        cos_en = cos_t
     }
+
+    let r0 = sqr((n1 - n2) / (n1 + n2));
+
+    let tmp = 1.0 - cos_en;
+    let tmp_pow_2 = tmp * tmp;
+    let tmp_pow_5 = tmp_pow_2 * tmp_pow_2 * tmp;
+    r0 + (1.0 - r0) * tmp_pow_5
 }
 
 fn sqr(x: f64) -> f64 {

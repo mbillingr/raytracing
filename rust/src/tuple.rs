@@ -51,6 +51,26 @@ impl Point {
     pub fn set_w(&mut self, w: f64) {
         self.0[3] = w
     }
+
+    pub fn get(&self, axis: usize) -> f64 {
+        self.0[axis]
+    }
+
+    pub fn min(&self, other: &Self) -> Self {
+        Point::new(
+            self.x().min(other.x()),
+            self.y().min(other.y()),
+            self.z().min(other.z()),
+        )
+    }
+
+    pub fn max(&self, other: &Self) -> Self {
+        Point::new(
+            self.x().max(other.x()),
+            self.y().max(other.y()),
+            self.z().max(other.z()),
+        )
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -75,6 +95,10 @@ impl Vector {
 
     pub fn w(&self) -> f64 {
         self.0[3]
+    }
+
+    pub fn get(&self, axis: usize) -> f64 {
+        self.0[axis]
     }
 
     pub fn len(&self) -> f64 {
@@ -108,6 +132,16 @@ impl Vector {
 
     pub fn as_vec3(&self) -> Vector3<f64> {
         [self.x(), self.y(), self.z()]
+    }
+
+    pub fn angle(&self, other: &Self) -> f64 {
+        self.dot(other).acos()
+    }
+}
+
+impl From<[f64; 3]> for Point {
+    fn from([x, y, z]: [f64; 3]) -> Self {
+        Point::new(x, y, z)
     }
 }
 
@@ -216,6 +250,7 @@ impl From<Vector4<f64>> for Point {
 mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
+    use std::f64::consts::PI;
 
     /// Only for testing, implement an inaccurate PartialEq
     impl PartialEq for Point {
@@ -413,5 +448,34 @@ mod tests {
         );
         let r = v.reflect(&n);
         assert_almost_eq!(r, vector(1, 0, 0));
+    }
+
+    /// Reflecting a vector off a slanted surface
+    #[test]
+    fn angle() {
+        assert_almost_eq!(
+            vector(0, 1, 0)
+                .normalized()
+                .angle(&vector(0, 1, 0).normalized()),
+            0.0
+        );
+        assert_almost_eq!(
+            vector(0, 1, 0)
+                .normalized()
+                .angle(&vector(1, 1, 0).normalized()),
+            45.0 * PI / 180.0
+        );
+        assert_almost_eq!(
+            vector(1, 1, 0)
+                .normalized()
+                .angle(&vector(0, 1, 0).normalized()),
+            45.0 * PI / 180.0
+        );
+        assert_almost_eq!(
+            vector(0, -1, 0)
+                .normalized()
+                .angle(&vector(0, 1, 0).normalized()),
+            PI
+        );
     }
 }

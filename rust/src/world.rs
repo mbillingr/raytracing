@@ -1,15 +1,25 @@
+use crate::approx_eq::EPSILON;
 use crate::color::{color, Color, BLACK};
 use crate::lights::{IncomingLight, Light, PointLight};
 use crate::materials::Phong;
 use crate::matrix::{scaling, Matrix};
+use crate::photon_map::{PhotonKind, PhotonMap, StoredPhoton, TravellingPhoton};
 use crate::ray::{hit, Intersection, IntersectionState, Ray};
 use crate::shapes::{sphere, SceneItem};
 use crate::tuple::{point, Point};
+use rand::distributions::WeightedIndex;
+use rand::{distributions::Distribution, thread_rng, Rng};
+use std::f64::consts::PI;
 
 pub struct World {
     lights: Vec<Box<dyn Light>>,
     objects: Vec<SceneItem>,
     max_reflection_depth: u32,
+    photon_map: Option<(PhotonMap, usize)>,
+    direct_illumination_enabled: bool,
+    direct_photon_map_enabled: bool,
+    diffuse_photon_map_enabled: bool,
+    caustic_photon_map_enabled: bool,
 }
 
 impl Default for World {
@@ -40,15 +50,37 @@ impl Default for World {
 
 impl World {
     pub fn new(lights: Vec<Box<dyn Light>>, objects: Vec<SceneItem>) -> Self {
+        log::info!("Creating new World object");
         World {
             lights,
             objects,
             max_reflection_depth: 10,
+            photon_map: None,
+            direct_illumination_enabled: true,
+            direct_photon_map_enabled: false,
+            diffuse_photon_map_enabled: true,
+            caustic_photon_map_enabled: true,
         }
     }
 
     pub fn empty() -> Self {
         World::new(vec![], vec![])
+    }
+
+    pub fn enable_direct_illumination(&mut self, flag: bool) {
+        self.direct_illumination_enabled = flag;
+    }
+
+    pub fn enable_direct_photon_map(&mut self, flag: bool) {
+        self.direct_photon_map_enabled = flag;
+    }
+
+    pub fn enable_diffuse_photon_map(&mut self, flag: bool) {
+        self.diffuse_photon_map_enabled = flag;
+    }
+
+    pub fn enable_caustic_photon_map(&mut self, flag: bool) {
+        self.caustic_photon_map_enabled = flag;
     }
 
     pub fn add_light(&mut self, light: impl Light) {
@@ -77,23 +109,50 @@ impl World {
         hit(&xs).map(|i| self.shade_hit(i.prepare_computations(&ray, &xs), remaining_bounces))
     }
 
+    fn photon_map_enabled(&self) -> bool {
+        self.direct_photon_map_enabled
+            || self.caustic_photon_map_enabled
+            || self.diffuse_photon_map_enabled
+    }
+
+    fn direct_photon_map_only(&self) -> bool {
+        self.direct_photon_map_enabled
+            && !self.caustic_photon_map_enabled
+            && !self.diffuse_photon_map_enabled
+    }
+
     fn shade_hit(&self, comps: IntersectionState, remaining_bounces: u32) -> Color {
         let material = comps.obj.material();
 
         let surface_color = material.color_at(&comps);
 
-        let surface = self.lights.iter().fold(BLACK, |color, light| {
-            let incoming_light = light.incoming_at(comps.over_point);
-            let in_shadow = self.is_shadowed(&incoming_light, comps.over_point);
-            color
-                + comps.obj.material().lighting(
-                    surface_color,
-                    incoming_light,
-                    comps.eyev,
-                    comps.normalv,
-                    in_shadow,
-                )
-        });
+        let mut surface = BLACK;
+
+        if self.photon_map_enabled() {
+            if let Some((pm, n_nearest)) = self.photon_map.as_ref() {
+                let (photons, square_radius) = pm.find_nearest(*n_nearest, comps.point);
+                let total_light = photons.iter().fold(BLACK, |color, photon| {
+                    color + comps.normalv.dot(&photon.direction()).max(0.0) * photon.power()
+                });
+                surface = surface + surface_color * total_light / (PI * square_radius);
+            }
+        }
+
+        if self.direct_illumination_enabled {
+            surface = surface
+                + self.lights.iter().fold(BLACK, |color, light| {
+                    let incoming_light = light.incoming_at(comps.over_point);
+                    let in_shadow = self.is_shadowed(&incoming_light, comps.over_point);
+                    color
+                        + comps.obj.material().lighting(
+                            surface_color,
+                            incoming_light,
+                            comps.eyev,
+                            comps.normalv,
+                            in_shadow,
+                        )
+                });
+        }
 
         let emissive = surface_color * material.emissive();
 
@@ -176,6 +235,96 @@ impl World {
                 )
                 .map(|c| c * comps.obj.material().transparency())
                 .unwrap_or(BLACK)
+            }
+        }
+    }
+
+    pub fn compute_photon_map(&mut self, n_photons: usize, n_nearest: usize) {
+        log::info!("Tracing {} photons", n_photons);
+        let mut photons = vec![];
+        let rng = &mut thread_rng();
+        for _ in 0..n_photons {
+            let photon = self.emit_photon(rng);
+            let stored_photons = self.trace_photon(photon, rng);
+
+            photons.extend(
+                stored_photons
+                    .into_iter()
+                    .map(|p| p.scale_power(1.0 / n_photons as f64)),
+            );
+        }
+
+        log::info!("Balancing photon map");
+        self.photon_map = Some((PhotonMap::from_vec(photons), n_nearest));
+
+        log::info!("Photon map complete");
+    }
+
+    pub fn emit_photon(&self, rng: &mut impl Rng) -> TravellingPhoton {
+        let dist = WeightedIndex::new(self.lights.iter().map(|light| light.power())).unwrap();
+        let idx = dist.sample(rng);
+        self.lights[idx].emit_photon().into()
+    }
+
+    pub fn trace_photon(
+        &self,
+        mut photon: TravellingPhoton,
+        rng: &mut impl Rng,
+    ) -> Vec<StoredPhoton> {
+        let mut hits = vec![];
+        loop {
+            if photon.power() < EPSILON {
+                return hits;
+            }
+
+            let xs = self.intersect(photon.ray());
+            let hit = match hit(&xs) {
+                Some(h) => h,
+                None => return hits,
+            };
+
+            let comps = hit.prepare_computations(&photon.ray(), &xs);
+            let mat = hit.obj.material();
+
+            let diffuse_reflectance = mat.diffuse() * mat.color_at(&comps);
+            let mut specular_reflectance = mat.specular().max(mat.reflective()); // TODO: Is this correct?
+            let mut transmittance = mat.transparency();
+
+            let pd_avg = diffuse_reflectance.sum() / 3.0;
+
+            if pd_avg > EPSILON {
+                if match photon.kind() {
+                    PhotonKind::Direct if self.direct_photon_map_enabled => true,
+                    PhotonKind::Diffuse if self.diffuse_photon_map_enabled => true,
+                    PhotonKind::Caustic if self.caustic_photon_map_enabled => true,
+                    _ => false,
+                } {
+                    hits.push(photon.store(comps.point));
+
+                    if self.direct_photon_map_only() {
+                        return hits;
+                    }
+                }
+            }
+
+            if mat.reflective() > 0.0 && mat.transparency() > 0.0 {
+                let r = comps.schlick();
+                specular_reflectance *= r;
+                transmittance *= 1.0 - r;
+            }
+
+            let p_absorb = 1.0 - pd_avg - specular_reflectance - transmittance;
+            assert!(p_absorb >= 0.0);
+            assert!(p_absorb <= 1.0);
+
+            let dist = WeightedIndex::new(&[p_absorb, pd_avg, specular_reflectance, transmittance])
+                .unwrap();
+            match dist.sample(rng) {
+                0 => return hits,
+                1 => photon = photon.scatter(comps.over_point, comps.normalv, diffuse_reflectance),
+                2 => photon = photon.reflect(comps.over_point, comps.normalv),
+                3 => photon = photon.refract(comps.over_point, comps.normalv, comps.n1, comps.n2),
+                _ => unreachable!(),
             }
         }
     }

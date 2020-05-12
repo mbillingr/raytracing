@@ -1,6 +1,6 @@
 use crate::matrix::Matrix;
 use crate::ray::Ray;
-use crate::tuple::Point;
+use crate::tuple::{Point, Vector};
 use std::f64::INFINITY;
 
 #[derive(Debug, Clone)]
@@ -36,6 +36,10 @@ impl Aabb {
 
     pub fn center(&self) -> Point {
         self.min_p + (self.max_p - self.min_p) / 2
+    }
+
+    pub fn size(&self) -> Vector {
+        self.max_p - self.min_p
     }
 
     pub fn intersect(&self, r: &Ray) -> Option<(f64, f64)> {
@@ -96,6 +100,30 @@ impl Aabb {
             .extend(t * Point::new(self.max_p.x(), self.min_p.y(), self.max_p.z()))
             .extend(t * Point::new(self.max_p.x(), self.max_p.y(), self.min_p.z()))
             .extend(t * self.max_p)
+    }
+
+    pub fn split_x(self, x: f32) -> (Self, Self) {
+        let mut left = self.clone();
+        left.max_p.set_x(x as f64);
+        let mut right = self;
+        right.min_p.set_x(x as f64);
+        (left, right)
+    }
+
+    pub fn split_y(self, y: f32) -> (Self, Self) {
+        let mut left = self.clone();
+        left.max_p.set_y(y as f64);
+        let mut right = self;
+        right.min_p.set_y(y as f64);
+        (left, right)
+    }
+
+    pub fn split_z(self, z: f32) -> (Self, Self) {
+        let mut left = self.clone();
+        left.max_p.set_z(z as f64);
+        let mut right = self;
+        right.min_p.set_z(z as f64);
+        (left, right)
     }
 }
 

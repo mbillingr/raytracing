@@ -94,6 +94,10 @@ impl Color {
     pub fn scale(&self, s: f64) -> Self {
         Color::new(self.red * s, self.green * s, self.blue * s)
     }
+
+    pub fn sum(&self) -> f64 {
+        self.red + self.green + self.blue
+    }
 }
 
 impl Add for Color {

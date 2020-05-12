@@ -1,4 +1,4 @@
-use crate::color::{color, Color};
+use crate::color::{color, Color, BLACK};
 use std::io::Write;
 
 pub fn canvas(w: u32, h: u32) -> Canvas {
@@ -26,6 +26,14 @@ impl Canvas {
 
     pub fn height(&self) -> u32 {
         self.height
+    }
+
+    pub fn average_brightness(&self) -> Color {
+        let mut sum = BLACK;
+        for &c in &self.data {
+            sum = sum + c;
+        }
+        sum / (self.width * self.height)
     }
 
     pub fn clear(&mut self, c: Color) {

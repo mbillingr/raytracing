@@ -28,6 +28,16 @@ impl ApproximateEq for f64 {
     }
 }
 
+impl ApproximateEq for f32 {
+    fn approx_eq(&self, other: &Self) -> bool {
+        if self.is_infinite() {
+            other.is_infinite() && self.signum() == other.signum()
+        } else {
+            (self - other).abs() < EPSILON as f32
+        }
+    }
+}
+
 impl ApproximateEq for Point {
     fn approx_eq(&self, other: &Self) -> bool {
         self.x().approx_eq(&other.x())
@@ -182,6 +192,30 @@ impl ApproximateEq for Aabb {
 impl<T: ApproximateEq> ApproximateEq for Vec<T> {
     fn approx_eq(&self, other: &Vec<T>) -> bool {
         self.len() == other.len() && self.iter().zip(other).all(|(a, b)| a.approx_eq(b))
+    }
+}
+
+impl<T: ApproximateEq> ApproximateEq for [T; 2] {
+    fn approx_eq(&self, other: &[T; 2]) -> bool {
+        self.iter().zip(other).all(|(a, b)| a.approx_eq(b))
+    }
+}
+
+impl<T: ApproximateEq> ApproximateEq for [T; 3] {
+    fn approx_eq(&self, other: &[T; 3]) -> bool {
+        self.iter().zip(other).all(|(a, b)| a.approx_eq(b))
+    }
+}
+
+impl<T: ApproximateEq> ApproximateEq for [T; 4] {
+    fn approx_eq(&self, other: &[T; 4]) -> bool {
+        self.iter().zip(other).all(|(a, b)| a.approx_eq(b))
+    }
+}
+
+impl<S: ApproximateEq, T: ApproximateEq> ApproximateEq for (S, T) {
+    fn approx_eq(&self, other: &(S, T)) -> bool {
+        self.0.approx_eq(&other.0) && self.1.approx_eq(&other.1)
     }
 }
 
