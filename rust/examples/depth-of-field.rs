@@ -86,6 +86,6 @@ fn main() {
 
     let image = camera.render_live(&world, "Depth of Field Example");
 
-    let mut f = File::create("pictures/depth-of-field.ppm").unwrap();
-    image.write_ppm(&mut f).unwrap();
+    let mut f = File::create("pictures/depth-of-field.png").unwrap();
+    image.write_png(&mut f).unwrap();
 }

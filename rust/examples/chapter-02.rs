@@ -35,8 +35,8 @@ fn main() {
         std::thread::sleep(Duration::from_millis(10));
     }
 
-    let mut f = File::create("pictures/chapter-02.ppm").unwrap();
-    canvas.write_ppm(&mut f).unwrap();
+    let mut f = File::create("pictures/chapter-02.png").unwrap();
+    canvas.write_png(&mut f).unwrap();
 
     h.join().unwrap();
 }

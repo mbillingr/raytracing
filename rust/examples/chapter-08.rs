@@ -84,6 +84,6 @@ fn main() {
 
     let image = camera.render_live(&world, "Chapter 8");
 
-    let mut f = File::create("pictures/chapter-08.ppm").unwrap();
-    image.write_ppm(&mut f).unwrap();
+    let mut f = File::create("pictures/chapter-08.png").unwrap();
+    image.write_png(&mut f).unwrap();
 }

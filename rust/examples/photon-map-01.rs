@@ -67,8 +67,8 @@ fn main() {
     world.enable_caustic_photon_map(false);
     let image = camera.render_live(&world, "Photon Map 01");
 
-    let mut f = File::create("pictures/photon-map-01a.ppm").unwrap();
-    image.write_ppm(&mut f).unwrap();
+    let mut f = File::create("pictures/photon-map-01a.png").unwrap();
+    image.write_png(&mut f).unwrap();
     log::debug!(
         "Average brightness (ray trace): {:?}",
         image.average_brightness()
@@ -80,8 +80,8 @@ fn main() {
     world.enable_caustic_photon_map(false);
     world.compute_photon_map(75_000_000, 1_000);
     let image = camera.render_live(&world, "Photon Map 01");
-    let mut f = File::create("pictures/photon-map-01b.ppm").unwrap();
-    image.write_ppm(&mut f).unwrap();
+    let mut f = File::create("pictures/photon-map-01b.png").unwrap();
+    image.write_png(&mut f).unwrap();
     log::debug!(
         "Average brightness (photon map): {:?}",
         image.average_brightness()
@@ -93,8 +93,8 @@ fn main() {
     world.enable_caustic_photon_map(true);
     world.compute_photon_map(75_000_000, 1_000);
     let image = camera.render_live(&world, "Photon Map 01");
-    let mut f = File::create("pictures/photon-map-01c.ppm").unwrap();
-    image.write_ppm(&mut f).unwrap();
+    let mut f = File::create("pictures/photon-map-01c.png").unwrap();
+    image.write_png(&mut f).unwrap();
     log::debug!(
         "Average brightness (ray + indirect photons): {:?}",
         image.average_brightness()

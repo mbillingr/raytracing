@@ -91,6 +91,23 @@ impl Canvas {
         }
         Ok(())
     }
+
+    pub fn write_png(&self, writer: &mut impl Write) -> std::io::Result<()> {
+        let mut encoder = png::Encoder::new(writer, self.width, self.height);
+        encoder.set_color(png::ColorType::RGB);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header()?;
+
+        let data: Vec<_> = self
+            .data
+            .iter()
+            .map(|pixel| pixel.to_u8())
+            .map(|(r, g, b)| vec![r, g, b])
+            .flatten()
+            .collect();
+        writer.write_image_data(&data).unwrap();
+        Ok(())
+    }
 }
 
 struct MaxWidthWriter<'a, T: Write> {

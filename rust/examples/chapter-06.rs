@@ -54,8 +54,8 @@ fn main() {
         }
     }
 
-    let mut f = File::create("pictures/chapter-06.ppm").unwrap();
-    canvas.write_ppm(&mut f).unwrap();
+    let mut f = File::create("pictures/chapter-06.png").unwrap();
+    canvas.write_png(&mut f).unwrap();
 
     h.join().unwrap();
 }
