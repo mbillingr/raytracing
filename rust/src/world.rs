@@ -9,6 +9,7 @@ use crate::shapes::{sphere, SceneItem};
 use crate::tuple::{point, Point};
 use rand::distributions::WeightedIndex;
 use rand::{distributions::Distribution, thread_rng, Rng};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::f64::consts::PI;
 
 pub struct World {
@@ -241,18 +242,13 @@ impl World {
 
     pub fn compute_photon_map(&mut self, n_photons: usize, n_nearest: usize) {
         log::info!("Tracing {} photons", n_photons);
-        let mut photons = vec![];
-        let rng = &mut thread_rng();
-        for _ in 0..n_photons {
-            let photon = self.emit_photon(rng);
-            let stored_photons = self.trace_photon(photon, rng);
-
-            photons.extend(
-                stored_photons
-                    .into_iter()
-                    .map(|p| p.scale_power(1.0 / n_photons as f64)),
-            );
-        }
+        let photons = (0..n_photons)
+            .into_par_iter()
+            .map(|_| self.emit_photon(&mut thread_rng()))
+            .map(|photon| self.trace_photon(photon, &mut thread_rng()))
+            .flatten()
+            .map(|photon| photon.scale_power(1.0 / n_photons as f64))
+            .collect();
 
         log::info!("Balancing photon map");
         self.photon_map = Some((PhotonMap::from_vec(photons), n_nearest));
@@ -290,7 +286,7 @@ impl World {
             let mut specular_reflectance = mat.specular().max(mat.reflective()); // TODO: Is this correct?
             let mut transmittance = mat.transparency();
 
-            let pd_avg = diffuse_reflectance.sum() / 3.0;
+            let mut pd_avg = diffuse_reflectance.sum() / 3.0;
 
             if pd_avg > EPSILON {
                 if match photon.kind() {
@@ -305,6 +301,10 @@ impl World {
                         return hits;
                     }
                 }
+            }
+
+            if !self.diffuse_photon_map_enabled {
+                pd_avg = 0.0;
             }
 
             if mat.reflective() > 0.0 && mat.transparency() > 0.0 {
@@ -323,7 +323,7 @@ impl World {
                 0 => return hits,
                 1 => photon = photon.scatter(comps.over_point, comps.normalv, diffuse_reflectance),
                 2 => photon = photon.reflect(comps.over_point, comps.normalv),
-                3 => photon = photon.refract(comps.over_point, comps.normalv, comps.n1, comps.n2),
+                3 => photon = photon.refract(comps.under_point, comps.normalv, comps.n1, comps.n2),
                 _ => unreachable!(),
             }
         }
