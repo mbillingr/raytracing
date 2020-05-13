@@ -22,7 +22,7 @@ impl Distribution<Vector> for CosineDistribution {
             let l = v.square_len();
 
             if l > EPSILON {
-                return v / l;
+                return v / l.sqrt();
             }
         }
     }
