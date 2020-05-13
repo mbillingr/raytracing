@@ -225,11 +225,11 @@ pub struct PhotonMap {
 
 impl PhotonMap {
     pub fn from_vec(mut photons: Vec<StoredPhoton>) -> Self {
-        let indices: Vec<usize> = (0..photons.len()).collect();
+        let mut indices: Vec<usize> = (0..photons.len()).collect();
         let mut kd_idx_tree = vec![usize::max_value(); photons.len()];
 
         let extent = compute_extent(&photons);
-        PhotonMap::balance(&mut photons, indices, &mut kd_idx_tree, 0, extent);
+        PhotonMap::balance(&mut photons, &mut indices, &mut kd_idx_tree, 0, extent);
 
         permute_inplace(&mut photons, kd_idx_tree);
         PhotonMap { photons }
@@ -241,7 +241,7 @@ impl PhotonMap {
 
     fn balance(
         photons: &mut [StoredPhoton],
-        mut indices: Vec<usize>,
+        indices: &mut [usize],
         tree: &mut [usize],
         node: usize,
         extent: Aabb,
@@ -259,79 +259,47 @@ impl PhotonMap {
         let n_left = compute_number_of_left_children(indices.len());
 
         let idx;
-        let mut s0 = vec![];
-        let mut s1 = vec![];
-        let mut s2 = vec![];
         let sub_extents;
         if extent.size().x() >= extent.size().y() && extent.size().x() >= extent.size().z() {
             let key = |i: usize| photons[i].position[0];
-            idx = get_nth_value(n_left, &mut indices, key);
+            partition_data(n_left, indices, key);
+            idx = indices[n_left];
             let median = key(idx);
-            for i in indices {
-                match key(i).partial_cmp(&median) {
-                    Some(std::cmp::Ordering::Equal) => {
-                        if i != idx {
-                            s0.push(i)
-                        }
-                    }
-                    Some(std::cmp::Ordering::Less) => s1.push(i),
-                    Some(std::cmp::Ordering::Greater) => s2.push(i),
-                    None => panic!("Encountered unorderable value in photon positions"),
-                }
-            }
             tree[node] = idx;
             photons[idx].set_kdflag(KdFlag::SplitX);
             sub_extents = extent.split_x(median);
         } else if extent.size().y() >= extent.size().x() && extent.size().y() >= extent.size().z() {
             let key = |i: usize| photons[i].position[1];
-            idx = get_nth_value(n_left, &mut indices, key);
+            partition_data(n_left, indices, key);
+            idx = indices[n_left];
             let median = key(idx);
-            for i in indices {
-                match key(i).partial_cmp(&median) {
-                    Some(std::cmp::Ordering::Equal) => {
-                        if i != idx {
-                            s0.push(i)
-                        }
-                    }
-                    Some(std::cmp::Ordering::Less) => s1.push(i),
-                    Some(std::cmp::Ordering::Greater) => s2.push(i),
-                    None => panic!("Encountered unorderable value in photon positions"),
-                }
-            }
             tree[node] = idx;
             photons[idx].set_kdflag(KdFlag::SplitY);
             sub_extents = extent.split_y(median);
         } else {
             let key = |i: usize| photons[i].position[2];
-            idx = get_nth_value(n_left, &mut indices, key);
+            partition_data(n_left, indices, key);
+            idx = indices[n_left];
             let median = key(idx);
-            for i in indices {
-                match key(i).partial_cmp(&median) {
-                    Some(std::cmp::Ordering::Equal) => {
-                        if i != idx {
-                            s0.push(i)
-                        }
-                    }
-                    Some(std::cmp::Ordering::Less) => s1.push(i),
-                    Some(std::cmp::Ordering::Greater) => s2.push(i),
-                    None => panic!("Encountered unorderable value in photon positions"),
-                }
-            }
             tree[node] = idx;
             photons[idx].set_kdflag(KdFlag::SplitZ);
             sub_extents = extent.split_z(median);
         }
 
-        for i in s0 {
-            if s1.len() < n_left {
-                s1.push(i);
-            } else {
-                s2.push(i);
-            }
-        }
-
-        Self::balance(photons, s1, tree, left_child(node), sub_extents.0);
-        Self::balance(photons, s2, tree, right_child(node), sub_extents.1);
+        Self::balance(
+            photons,
+            &mut indices[..n_left],
+            tree,
+            left_child(node),
+            sub_extents.0,
+        );
+        Self::balance(
+            photons,
+            &mut indices[n_left + 1..],
+            tree,
+            right_child(node),
+            sub_extents.1,
+        );
     }
 
     pub fn find_nearest(&self, n_neighbors: usize, p: Point) -> (Vec<&StoredPhoton>, f64) {
@@ -461,10 +429,12 @@ fn compute_number_of_left_children(n: usize) -> usize {
     }
 }
 
-fn get_nth_value(n: usize, data: &mut [usize], key: impl Fn(usize) -> f32) -> usize {
-    // reference impl:
-    //     data.sort_unstable_by(|&a, &b| key(a).partial_cmp(&key(b)).unwrap());
-    //     data[n]
+/// arrange data so that for a given n:
+///   1. data[i] <= data[n] for i < n
+///   2. data[j] >= data[n] for j > n
+fn partition_data(_n: usize, data: &mut [usize], key: impl Fn(usize) -> f32) {
+    // todo: fully sorting the data is overkill. It might be more efficient to partially sort.
+    data.sort_unstable_by(|&a, &b| key(a).partial_cmp(&key(b)).unwrap());
 
     /*let mut pivot = 0;
     let mut right = data.len() - 1;
@@ -486,9 +456,6 @@ fn get_nth_value(n: usize, data: &mut [usize], key: impl Fn(usize) -> f32) -> us
     } else { // n > pivot
         get_nth_value(n - pivot - 1, &mut data[pivot + 1..], key)
     }*/
-
-    data.sort_unstable_by(|&a, &b| key(a).partial_cmp(&key(b)).unwrap());
-    data[n]
 }
 
 fn permute_inplace<T: Clone>(a: &mut [T], mut indices: Vec<usize>) {
@@ -598,37 +565,46 @@ mod tests {
     }
 
     #[test]
-    fn nth_value_sorted() {
+    fn partition_sorted() {
+        let n = 0;
         let mut data = [0, 1, 2, 3];
-        get_nth_value(0, &mut data, |i| i as f32);
-        assert_eq!(data[0], 0)
+        partition_data(n, &mut data, |i| i as f32);
+        for i in 0..data.len() {
+            if i < n {
+                assert!(data[i] <= data[n]);
+            }
+
+            if i > n {
+                assert!(data[i] >= data[n]);
+            }
+        }
     }
 
     #[test]
-    fn nth_value_swap_one() {
+    fn partition_unsorted() {
+        let n = 1;
         let mut data = [2, 3, 1, 0];
-        get_nth_value(1, &mut data, |i| i as f32);
-        assert_eq!(data[1], 1)
-    }
+        partition_data(n, &mut data, |i| i as f32);
+        for i in 0..data.len() {
+            if i < n {
+                assert!(data[i] <= data[n]);
+            }
 
-    #[test]
-    fn nth_value() {
-        let get = |n| get_nth_value(n, &mut [7, 5, 3, 1, 9, 0, 2, 4, 6, 8], |i| i as f32);
-        assert_eq!(get(0), 0);
-        assert_eq!(get(4), 4);
-        assert_eq!(get(5), 5);
-        assert_eq!(get(9), 9);
+            if i > n {
+                assert!(data[i] >= data[n]);
+            }
+        }
     }
 
     #[test]
     fn balance2() {
         let mut photons = vec![photon(point(0, 0, 0)), photon(point(1, 1, 1))];
-        let indices: Vec<usize> = (0..photons.len()).collect();
+        let mut indices: Vec<usize> = (0..photons.len()).collect();
         let mut tree = vec![usize::max_value(); photons.len()];
 
         PhotonMap::balance(
             &mut photons,
-            indices,
+            &mut indices,
             &mut tree,
             0,
             Aabb::new(0.0, 1.0, 0.0, 1.0, 0.0, 1.0),
@@ -646,12 +622,12 @@ mod tests {
             photon(point(3, 3, 3)),
             photon(point(4, 4, 4)),
         ];
-        let indices: Vec<usize> = (0..photons.len()).collect();
+        let mut indices: Vec<usize> = (0..photons.len()).collect();
         let mut tree = vec![usize::max_value(); photons.len()];
 
         PhotonMap::balance(
             &mut photons,
-            indices,
+            &mut indices,
             &mut tree,
             0,
             Aabb::new(0.0, 4.0, 0.0, 4.0, 0.0, 4.0),
@@ -674,12 +650,12 @@ mod tests {
             photon(point(8, 8, 8)),
             photon(point(9, 9, 9)),
         ];
-        let indices: Vec<usize> = (0..photons.len()).collect();
+        let mut indices: Vec<usize> = (0..photons.len()).collect();
         let mut tree = vec![usize::max_value(); photons.len()];
 
         PhotonMap::balance(
             &mut photons,
-            indices,
+            &mut indices,
             &mut tree,
             0,
             Aabb::new(0.0, 9.0, 0.0, 9.0, 0.0, 9.0),
@@ -697,12 +673,12 @@ mod tests {
             photon(point(1, 1, 1)),
             photon(point(1, 1, 1)),
         ];
-        let indices: Vec<usize> = (0..photons.len()).collect();
+        let mut indices: Vec<usize> = (0..photons.len()).collect();
         let mut tree = vec![usize::max_value(); photons.len()];
 
         PhotonMap::balance(
             &mut photons,
-            indices,
+            &mut indices,
             &mut tree,
             0,
             Aabb::new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
