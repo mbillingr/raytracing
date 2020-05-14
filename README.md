@@ -1,6 +1,6 @@
 # The Ray Tracer Challenge
 
-This repository contains my two implementations of [The Ray Tracer Challenge](https://pragprog.com/book/jbtracer/the-ray-tracer-challenge). One of the implementations was written in Scheme (portable R7RS) to test the Scheme interpreter I am working on. The other implementation was written in Rust, whose superior performance allowed me to implement a few additional features.
+This repository contains my two implementations of [The Ray Tracer Challenge](https://pragprog.com/book/jbtracer/the-ray-tracer-challenge). One of the implementations was written in Scheme (portable R7RS) to test the Scheme interpreter I am working on. The other implementation was written in Rust, whose superior performance allowed me to play with a few additional features.
 
 # Features of the Rust implementation
 
