@@ -3,8 +3,12 @@ name: Rust
 on:
   push:
     branches: [ master ]
+    paths:
+    - 'rust/**'
   pull_request:
     branches: [ master ]
+    paths:
+    - 'rust/**'
 
 jobs:
   build:
@@ -14,6 +18,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose    
+      working-directory: ./rust
     - name: Run tests
       run: cargo test --verbose
+      working-directory: ./rust
