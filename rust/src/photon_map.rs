@@ -3,6 +3,7 @@ use crate::approx_eq::ApproximateEq;
 use crate::color::{color, Color};
 use crate::cosine_distribution::CosineDistribution;
 use crate::lights::LightRay;
+use crate::partial_sort::partition_by_key;
 use crate::ray::Ray;
 use crate::tuple::{point, vector, Point, Vector};
 use rand::distributions::Distribution;
@@ -18,7 +19,7 @@ pub struct StoredPhoton {
 }
 
 impl StoredPhoton {
-    fn new(p: Point, d: Vector, c: Color) -> Self {
+    pub fn new(p: Point, d: Vector, c: Color) -> Self {
         StoredPhoton {
             position: [p.x() as f32, p.y() as f32, p.z() as f32],
             direction: [d.x() as f32, d.y() as f32, d.z() as f32],
@@ -261,26 +262,26 @@ impl PhotonMap {
         let idx;
         let sub_extents;
         if extent.size().x() >= extent.size().y() && extent.size().x() >= extent.size().z() {
-            let key = |i: usize| photons[i].position[0];
-            partition_data(n_left, indices, key);
+            let key = |&i: &usize| photons[i].position[0];
+            partition_by_key(n_left, indices, key);
             idx = indices[n_left];
-            let median = key(idx);
+            let median = key(&idx);
             tree[node] = idx;
             photons[idx].set_kdflag(KdFlag::SplitX);
             sub_extents = extent.split_x(median);
         } else if extent.size().y() >= extent.size().x() && extent.size().y() >= extent.size().z() {
-            let key = |i: usize| photons[i].position[1];
-            partition_data(n_left, indices, key);
+            let key = |&i: &usize| photons[i].position[1];
+            partition_by_key(n_left, indices, key);
             idx = indices[n_left];
-            let median = key(idx);
+            let median = key(&idx);
             tree[node] = idx;
             photons[idx].set_kdflag(KdFlag::SplitY);
             sub_extents = extent.split_y(median);
         } else {
-            let key = |i: usize| photons[i].position[2];
-            partition_data(n_left, indices, key);
+            let key = |&i: &usize| photons[i].position[2];
+            partition_by_key(n_left, indices, key);
             idx = indices[n_left];
-            let median = key(idx);
+            let median = key(&idx);
             tree[node] = idx;
             photons[idx].set_kdflag(KdFlag::SplitZ);
             sub_extents = extent.split_z(median);
@@ -429,35 +430,6 @@ fn compute_number_of_left_children(n: usize) -> usize {
     }
 }
 
-/// arrange data so that for a given n:
-///   1. data[i] <= data[n] for i < n
-///   2. data[j] >= data[n] for j > n
-fn partition_data(_n: usize, data: &mut [usize], key: impl Fn(usize) -> f32) {
-    // todo: fully sorting the data is overkill. It might be more efficient to partially sort.
-    data.sort_unstable_by(|&a, &b| key(a).partial_cmp(&key(b)).unwrap());
-
-    /*let mut pivot = 0;
-    let mut right = data.len() - 1;
-
-    while pivot < right {
-        if key(data[pivot+1]) <= key(data[pivot]) {
-            data.swap(pivot, pivot + 1);
-            pivot += 1;
-        } else {
-            data.swap(pivot+1, right);
-            right -= 1;
-        }
-    }
-
-    if pivot == n {
-        data[pivot]
-    } else if n < pivot {
-        get_nth_value(n, &mut data[..pivot], key)
-    } else { // n > pivot
-        get_nth_value(n - pivot - 1, &mut data[pivot + 1..], key)
-    }*/
-}
-
 fn permute_inplace<T: Clone>(a: &mut [T], mut indices: Vec<usize>) {
     for i in 0..a.len() {
         let x = a[i].clone();
@@ -562,38 +534,6 @@ mod tests {
             compute_extent(&photons),
             Aabb::new(1.0, 3.0, 1.0, 3.0, -10.0, 10.0)
         )
-    }
-
-    #[test]
-    fn partition_sorted() {
-        let n = 0;
-        let mut data = [0, 1, 2, 3];
-        partition_data(n, &mut data, |i| i as f32);
-        for i in 0..data.len() {
-            if i < n {
-                assert!(data[i] <= data[n]);
-            }
-
-            if i > n {
-                assert!(data[i] >= data[n]);
-            }
-        }
-    }
-
-    #[test]
-    fn partition_unsorted() {
-        let n = 1;
-        let mut data = [2, 3, 1, 0];
-        partition_data(n, &mut data, |i| i as f32);
-        for i in 0..data.len() {
-            if i < n {
-                assert!(data[i] <= data[n]);
-            }
-
-            if i > n {
-                assert!(data[i] >= data[n]);
-            }
-        }
     }
 
     #[test]

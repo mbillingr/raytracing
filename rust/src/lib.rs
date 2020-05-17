@@ -14,6 +14,7 @@ pub mod materials;
 pub mod math;
 pub mod matrix;
 pub mod obj_loader;
+pub mod partial_sort;
 pub mod pattern;
 pub mod photon_map;
 pub mod shapes;
