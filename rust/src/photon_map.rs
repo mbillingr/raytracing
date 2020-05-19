@@ -9,6 +9,7 @@ use crate::tuple::{point, vector, Point, Vector};
 use rand::distributions::Distribution;
 use rand::thread_rng;
 use std::collections::BinaryHeap;
+use std::f64::INFINITY;
 
 #[derive(Debug, Clone)]
 pub struct StoredPhoton {
@@ -222,6 +223,7 @@ enum KdFlag {
 #[derive(Debug)]
 pub struct PhotonMap {
     photons: Vec<StoredPhoton>,
+    max_search_radius: f64,
 }
 
 impl PhotonMap {
@@ -233,7 +235,14 @@ impl PhotonMap {
         PhotonMap::balance(&mut photons, &mut indices, &mut kd_idx_tree, 0, extent);
 
         permute_inplace(&mut photons, kd_idx_tree);
-        PhotonMap { photons }
+        PhotonMap {
+            photons,
+            max_search_radius: INFINITY,
+        }
+    }
+
+    pub fn set_max_search_radius(&mut self, r: f64) {
+        self.max_search_radius = r;
     }
 
     pub fn get_photon(&self, index: usize) -> &StoredPhoton {
@@ -326,12 +335,16 @@ impl PhotonMap {
             let d = self.distance_to_splitting_plane(p, node);
             if d < 0.0 {
                 self.locate_photons(left_child(node), n_neighbors, p, heap);
-                if heap.len() < n_neighbors || d * d < heap.peek().unwrap().squared_distance {
+                if d < self.max_search_radius
+                    && (heap.len() < n_neighbors || d * d < heap.peek().unwrap().squared_distance)
+                {
                     self.locate_photons(right_child(node), n_neighbors, p, heap);
                 }
             } else {
                 self.locate_photons(right_child(node), n_neighbors, p, heap);
-                if heap.len() < n_neighbors || d * d < heap.peek().unwrap().squared_distance {
+                if d < self.max_search_radius
+                    && (heap.len() < n_neighbors || d * d < heap.peek().unwrap().squared_distance)
+                {
                     self.locate_photons(left_child(node), n_neighbors, p, heap);
                 }
             }

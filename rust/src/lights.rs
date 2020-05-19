@@ -4,7 +4,7 @@ use crate::cosine_distribution::CosineDistribution;
 use crate::tuple::{vector, Point, Vector};
 use rand::distributions::Distribution;
 use rand::thread_rng;
-use rand_distr::UnitSphere;
+use rand_distr::{UnitDisc, UnitSphere};
 use std::any::Any;
 use std::f64::consts::PI;
 
@@ -23,6 +23,15 @@ pub trait Light: Sync + 'static {
 pub enum IncomingLight {
     Ray(LightRay),
     Omni(Color),
+}
+
+impl IncomingLight {
+    pub fn intensity(&self) -> Color {
+        match self {
+            IncomingLight::Ray(lr) => lr.color,
+            IncomingLight::Omni(c) => *c,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -280,6 +289,99 @@ impl Light for SphereLight {
             origin: self.position + p * self.radius,
             direction: d,
             color: self.intensity,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct DiscLight {
+    position: Point,
+    normal: Vector,
+    radius: f64,
+    width: Vector,
+    height: Vector,
+    intensity: Color,
+}
+
+impl DiscLight {
+    pub fn new(position: Point, normal: Vector, radius: f64, intensity: Color) -> Self {
+        let mut helper = vector(1, 0, 0);
+        if helper.dot(&normal).approx_eq(&1.0) {
+            helper = vector(0, 1, 0);
+        }
+        let width = normal.cross(&helper);
+        let height = width.cross(&normal);
+        DiscLight {
+            position,
+            normal,
+            radius,
+            width: width * radius,
+            height: height * radius,
+            intensity,
+        }
+    }
+
+    pub fn position(&self) -> Point {
+        self.position
+    }
+
+    pub fn intensity(&self) -> Color {
+        self.intensity
+    }
+}
+
+impl Light for DiscLight {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_similar(&self, other: &dyn Light) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .map(|other| {
+                self.position().approx_eq(&other.position())
+                    && self.intensity().approx_eq(&other.intensity())
+                    && self.normal.approx_eq(&other.normal)
+                    && self.radius.approx_eq(&other.radius)
+            })
+            .unwrap_or(false)
+    }
+
+    fn incoming_at(&self, point: Point) -> IncomingLight {
+        let rng = &mut thread_rng();
+        let [u, v]: [f64; 2] = UnitDisc.sample(rng);
+        let origin = self.position + self.width * u + self.height * v;
+
+        let direction = (origin - point).normalized();
+
+        let distance2 = (origin - point).square_len();
+
+        IncomingLight::Ray(LightRay {
+            origin,
+            direction,
+            color: self.intensity * (-direction).dot(&self.normal).max(0.0)
+                / (4.0 * PI * distance2),
+        })
+    }
+
+    /// Assume that the spherical light is a point light with a diffusing sphere around it.
+    /// Thus, it has the same power as a point light. I think this implies that larger radii
+    /// lead to apparently dimmer light sources.
+    fn power(&self) -> f64 {
+        PointLight::compute_power(self.intensity) * 1.0
+    }
+
+    fn emit_photon(&self) -> LightRay {
+        let rng = &mut thread_rng();
+        let [u, v]: [f64; 2] = UnitDisc.sample(rng);
+        let origin = self.position + self.width * u + self.height * v;
+
+        let d = CosineDistribution::new(self.normal).sample(rng);
+        LightRay {
+            origin,
+            direction: d,
+            color: self.intensity * 0.25 * 2.0 / PI, // I do not know where the factor 2/pi comes from, but empirically it gives the same brightness as incoming_at...
         }
     }
 }

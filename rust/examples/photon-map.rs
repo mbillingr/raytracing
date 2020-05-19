@@ -1,6 +1,6 @@
 use raytracing::camera::Camera;
 use raytracing::color::color;
-use raytracing::lights::RealisticPointLight;
+use raytracing::lights::DiscLight;
 use raytracing::materials::Phong;
 use raytracing::matrix::{rotation_x, rotation_y, rotation_z, scaling, translation};
 use raytracing::shapes::{cube, plane, sphere};
@@ -14,9 +14,11 @@ fn main() {
 
     let mut world = World::empty();
 
-    world.add_light(RealisticPointLight::new(
+    world.add_light(DiscLight::new(
         point(0, 8, 4),
-        color(1, 1, 1) * 200,
+        vector(0, -1, 0),
+        0.5,
+        color(1, 1, 1) * 1000,
     ));
 
     let white_material = Phong::new(color(1, 1, 1), 0.0, 0.5, 0.0, 100.0, 0.0, 0.0, 1.0);
@@ -73,7 +75,7 @@ fn main() {
 
     let mut camera = Camera::new(600, 600, PI / 2.0).with_view_transform(from, to, vector(0, 1, 0));
     camera.set_allowed_standard_error(1e-2);
-    camera.set_min_samples(10);
+    camera.set_min_samples(100);
 
     world.enable_direct_illumination(true);
     world.enable_direct_photon_map(false);
@@ -92,7 +94,7 @@ fn main() {
     world.enable_direct_photon_map(true);
     world.enable_diffuse_photon_map(false);
     world.enable_caustic_photon_map(true);
-    world.compute_photon_map(75_000_000, 100);
+    world.compute_photon_map(75_000_000, 100, 0.1);
     let image = camera.render_live(&world, "Photon Map Example: direct and caustic photons");
     let mut f = File::create("pictures/photon-map-02-direct_and_caustic_photons.png").unwrap();
     image.write_png(&mut f).unwrap();
@@ -105,7 +107,7 @@ fn main() {
     world.enable_direct_photon_map(false);
     world.enable_diffuse_photon_map(true);
     world.enable_caustic_photon_map(true);
-    world.compute_photon_map(75_000_000, 100);
+    world.compute_photon_map(75_000_000, 100, 0.1);
     let image = camera.render_live(
         &world,
         "Photon Map Example: direct light and global illumination",

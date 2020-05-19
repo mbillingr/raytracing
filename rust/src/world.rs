@@ -155,6 +155,8 @@ impl World {
                 });
         }
 
+        surface = surface.clip(0.0, 1.0);
+
         let emissive = surface_color * material.emissive();
 
         let reflected = self.reflected_color(&comps, remaining_bounces);
@@ -240,7 +242,12 @@ impl World {
         }
     }
 
-    pub fn compute_photon_map(&mut self, n_photons: usize, n_nearest: usize) {
+    pub fn compute_photon_map(
+        &mut self,
+        n_photons: usize,
+        n_nearest: usize,
+        max_search_radius: f64,
+    ) {
         log::info!("Tracing {} photons", n_photons);
         let photons = (0..n_photons)
             .into_par_iter()
@@ -251,7 +258,9 @@ impl World {
             .collect();
 
         log::info!("Balancing photon map");
-        self.photon_map = Some((PhotonMap::from_vec(photons), n_nearest));
+        let mut map = PhotonMap::from_vec(photons);
+        map.set_max_search_radius(max_search_radius);
+        self.photon_map = Some((map, n_nearest));
 
         log::info!("Photon map complete");
     }
