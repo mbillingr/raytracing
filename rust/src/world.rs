@@ -203,6 +203,7 @@ impl World {
                 .map(|i| i.t < (lr.origin - p).len())
                 .unwrap_or(false),
             IncomingLight::Omni(_) => false,
+            IncomingLight::NoLight => true,
         }
     }
 

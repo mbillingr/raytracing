@@ -1,7 +1,7 @@
 use rand::{distributions::Distribution, thread_rng};
 use rand_distr::UnitSphere;
 use raytracing::color::color;
-use raytracing::lights::{DiscLight, Light, PointLight, RealisticPointLight};
+use raytracing::lights::{Beam, DiscLight, Light, PointLight, RealisticPointLight};
 use raytracing::tuple::{point, vector, Vector};
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
@@ -55,6 +55,15 @@ fn main() {
             point(0, 0, 0),
             vector(0, 1, 0),
             1.0,
+            color(1, 1, 1),
+        )),
+    );
+    lights.insert(
+        "Beam light",
+        LightData::new(Beam::new(
+            point(0, 0, 0),
+            vector(0, 0.5, 0),
+            vector(0.5, 0, 0),
             color(1, 1, 1),
         )),
     );

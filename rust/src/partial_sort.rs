@@ -10,6 +10,7 @@ pub fn sweep<T: Copy + PartialOrd>(pivot: usize, data: &mut [T]) -> usize {
 /// all values to it's left are smaller or equal, and all values to it's right
 /// are larger or equal.
 pub fn partition_by_key<T, K: PartialOrd, F: Copy + Fn(&T) -> K>(n: usize, data: &mut [T], key: F) {
+    //data.sort_unstable_by(|a, b| key(a).partial_cmp(&key(b)).unwrap())
     if n == 0 && data.len() == 1 {
         return;
     }

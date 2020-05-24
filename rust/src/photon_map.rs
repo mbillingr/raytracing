@@ -315,7 +315,7 @@ impl PhotonMap {
     pub fn find_nearest(&self, n_neighbors: usize, p: Point) -> (Vec<&StoredPhoton>, f64) {
         let mut heap = BinaryHeap::new();
         self.locate_photons(0, n_neighbors, p, &mut heap);
-        let maxsquared_distance = heap.peek().unwrap().squared_distance;
+        let maxsquared_distance = heap.peek().map(|p| p.squared_distance).unwrap_or(1.0);
         let nearest = heap.into_iter().map(|sp| sp.photon).collect();
         (nearest, maxsquared_distance)
     }
@@ -413,8 +413,8 @@ fn right_child(n: usize) -> usize {
 }
 
 fn compute_extent(photons: &[StoredPhoton]) -> Aabb {
-    let mut aabb = Aabb::empty_at(photons[0].position());
-    for p in &photons[1..] {
+    let mut aabb = Aabb::empty();
+    for p in photons {
         aabb = aabb.extend(p.position());
     }
     aabb

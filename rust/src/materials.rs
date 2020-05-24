@@ -212,6 +212,7 @@ impl Phong {
         in_shadow: bool,
     ) -> Color {
         match light {
+            IncomingLight::NoLight => BLACK,
             IncomingLight::Omni(intensity) => surface_color * intensity,
             IncomingLight::Ray(lightray) => {
                 let effective_color = surface_color * lightray.color;

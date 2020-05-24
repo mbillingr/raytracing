@@ -1,10 +1,10 @@
 use crate::approx_eq::ApproximateEq;
-use crate::color::Color;
+use crate::color::{color, Color};
 use crate::cosine_distribution::CosineDistribution;
 use crate::tuple::{vector, Point, Vector};
 use rand::distributions::Distribution;
 use rand::thread_rng;
-use rand_distr::{UnitDisc, UnitSphere};
+use rand_distr::{StandardNormal, UnitDisc, UnitSphere};
 use std::any::Any;
 use std::f64::consts::PI;
 
@@ -23,6 +23,7 @@ pub trait Light: Sync + 'static {
 pub enum IncomingLight {
     Ray(LightRay),
     Omni(Color),
+    NoLight,
 }
 
 impl IncomingLight {
@@ -30,6 +31,7 @@ impl IncomingLight {
         match self {
             IncomingLight::Ray(lr) => lr.color,
             IncomingLight::Omni(c) => *c,
+            IncomingLight::NoLight => color(0, 0, 0),
         }
     }
 }
@@ -170,6 +172,91 @@ impl Light for RealisticPointLight {
             origin: self.position,
             direction: p.into(),
             color: self.intensity * 2.0 / PI, // I do not know where the factor 2/pi comes from, but empirically it gives the same brightness as incoming_at...
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Beam {
+    position: Point,
+    up: Vector,
+    right: Vector,
+    direction: Vector,
+    intensity: Color,
+}
+
+impl Beam {
+    pub fn new(position: Point, up: Vector, right: Vector, intensity: Color) -> Self {
+        assert!(
+            up.dot(&right).approx_eq(&0.0),
+            "*up* and *right* must be orthogonal"
+        );
+        Beam {
+            position,
+            up,
+            right,
+            direction: right.cross(&up).normalized(),
+            intensity,
+        }
+    }
+
+    pub fn position(&self) -> Point {
+        self.position
+    }
+
+    pub fn intensity(&self) -> Color {
+        self.intensity
+    }
+}
+
+impl Light for Beam {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn is_similar(&self, other: &dyn Light) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .map(|other| {
+                self.position().approx_eq(&other.position())
+                    && self.up.approx_eq(&other.up)
+                    && self.right.approx_eq(&other.right)
+                    && self.intensity().approx_eq(&other.intensity())
+            })
+            .unwrap_or(false)
+    }
+
+    fn incoming_at(&self, point: Point) -> IncomingLight {
+        let direction = point - self.position;
+        if direction.dot(&self.direction) < 0.0 {
+            return IncomingLight::NoLight;
+        }
+        let u = direction.dot(&self.up) / self.up.square_len();
+        let v = direction.dot(&self.right) / self.right.square_len();
+        let radius_squared = u * u + v * v;
+        IncomingLight::Ray(LightRay {
+            origin: self.position + u * self.up + v * self.right,
+            direction: -self.direction,
+            color: self.intensity * f64::exp(-radius_squared),
+        })
+    }
+
+    /// The point light is the reference light source: it has a scaling factor of 1.
+    /// All other light sources need to specify a scaling factor relative to that of
+    /// the point light.
+    fn power(&self) -> f64 {
+        PointLight::compute_power(self.intensity) * 1.0
+    }
+
+    fn emit_photon(&self) -> LightRay {
+        let rng = &mut thread_rng();
+        let u: f64 = StandardNormal.sample(rng);
+        let v: f64 = StandardNormal.sample(rng);
+        LightRay {
+            origin: self.position + u * self.up + v * self.right,
+            direction: self.direction,
+            color: self.intensity * 2.0 / PI,
         }
     }
 }
@@ -400,5 +487,63 @@ mod tests {
         let light = PointLight::new(position, intensity);
         assert_eq!(light.position(), position);
         assert_eq!(light.intensity(), intensity);
+    }
+
+    /// Constructing a beam light
+    #[test]
+    fn beam_light() {
+        let beam = Beam::new(
+            point(0, 0, 0),
+            vector(0, 1, 0),
+            vector(1, 0, 0),
+            color(1, 1, 1),
+        );
+        assert_almost_eq!(beam.position, point(0, 0, 0));
+        assert_almost_eq!(beam.up, vector(0, 1, 0));
+        assert_almost_eq!(beam.right, vector(1, 0, 0));
+        assert_almost_eq!(beam.direction, vector(0, 0, 1));
+        assert_almost_eq!(beam.intensity, color(1, 1, 1));
+    }
+
+    /// beam profile
+    #[test]
+    fn beam_no_backlight() {
+        let beam = Beam::new(
+            point(0, 0, 0),
+            vector(0, 1, 0),
+            vector(1, 0, 0),
+            color(1, 1, 1),
+        );
+        assert_almost_eq!(
+            beam.incoming_at(point(0, 0, -10)).intensity(),
+            color(0, 0, 0)
+        );
+    }
+
+    /// beam profile
+    #[test]
+    fn beam_profile_circular() {
+        let beam = Beam::new(
+            point(0, 0, 0),
+            vector(0, 1, 0),
+            vector(1, 0, 0),
+            color(1, 1, 1),
+        );
+        assert_almost_eq!(
+            beam.incoming_at(point(0, 0, 10)).intensity(),
+            color(1, 1, 1)
+        );
+        assert_almost_eq!(
+            beam.incoming_at(point(0.83255, 0, 10)).intensity(),
+            color(0.5, 0.5, 0.5)
+        );
+        assert_almost_eq!(
+            beam.incoming_at(point(0, -0.83255, 10)).intensity(),
+            color(0.5, 0.5, 0.5)
+        );
+        assert_almost_eq!(
+            beam.incoming_at(point(-0.58871, 0.58871, 10)).intensity(),
+            color(0.5, 0.5, 0.5)
+        );
     }
 }
