@@ -335,7 +335,7 @@ impl PhotonMap {
             let d = self.distance_to_splitting_plane(p, node);
             if d < 0.0 {
                 self.locate_photons(left_child(node), n_neighbors, p, heap);
-                if d < self.max_search_radius
+                if -d < self.max_search_radius
                     && (heap.len() < n_neighbors || d * d < heap.peek().unwrap().squared_distance)
                 {
                     self.locate_photons(right_child(node), n_neighbors, p, heap);
