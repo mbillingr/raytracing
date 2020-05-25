@@ -206,6 +206,7 @@ macro_rules! intersections {
 mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
+    use crate::materials::Phong;
     use crate::matrix::{rotation_x, scaling, translation};
     use crate::shapes::{glass_sphere, plane, sphere, triangle};
     use crate::tuple::{point, vector};
@@ -380,14 +381,21 @@ mod tests {
     /// Finding n1 and n2 at various intersections
     #[test]
     fn refractive_index_at_intersections() {
+        let glass = glass_sphere()
+            .material()
+            .as_any()
+            .downcast_ref::<Phong>()
+            .unwrap()
+            .clone();
+
         let mut a = glass_sphere().with_transform(scaling(2, 2, 2));
-        a.material_mut().set_refractive_index(1.5);
+        a.set_material(glass.clone().with_refractive_index(1.5));
 
         let mut b = glass_sphere().with_transform(translation(0, 0, -0.25));
-        b.material_mut().set_refractive_index(2.0);
+        b.set_material(glass.clone().with_refractive_index(2.0));
 
         let mut c = glass_sphere().with_transform(translation(0, 0, 0.25));
-        c.material_mut().set_refractive_index(2.5);
+        c.set_material(glass.clone().with_refractive_index(2.5));
 
         let r = Ray::new(point(0, 0, -4), vector(0, 0, 1));
         let xs = intersections![

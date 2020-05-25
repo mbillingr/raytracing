@@ -19,7 +19,7 @@ pub use triangle::{smooth_triangle, triangle, Triangle, TriangleMesh};
 use crate::aabb::Aabb;
 use crate::approx_eq::ApproximateEq;
 use crate::color::Color;
-use crate::materials::Phong;
+use crate::materials::{Material, Phong};
 use crate::matrix::Matrix;
 use crate::pattern::Pattern;
 use crate::ray::{sort_intersections, Intersection, Ray};
@@ -214,7 +214,7 @@ impl From<CsgPair> for SceneItem {
 
 #[derive(Debug)]
 pub struct Shape {
-    material: Phong,
+    material: Box<dyn Material>,
     transform: Matrix,
     cumulative_transform: Matrix,
     inv_cumulative_transform: Matrix,
@@ -238,7 +238,7 @@ impl Clone for Shape {
 impl Shape {
     pub fn new(geometry: impl Geometry) -> Self {
         Shape {
-            material: Phong::default(),
+            material: Box::new(Phong::default()),
             transform: Matrix::identity(),
             cumulative_transform: Matrix::identity(),
             inv_cumulative_transform: Matrix::identity(),
@@ -266,8 +266,11 @@ impl Shape {
         pattern.at(self.world_to_object(world_point))
     }
 
-    pub fn with_material(self, material: Phong) -> Self {
-        Shape { material, ..self }
+    pub fn with_material(self, material: impl Material) -> Self {
+        Shape {
+            material: Box::new(material),
+            ..self
+        }
     }
 
     pub fn with_transform(self, transform: Matrix) -> Self {
@@ -279,16 +282,16 @@ impl Shape {
         }
     }
 
-    pub fn material(&self) -> &Phong {
-        &self.material
+    pub fn material(&self) -> &dyn Material {
+        &*self.material
     }
 
-    pub fn material_mut(&mut self) -> &mut Phong {
-        &mut self.material
+    pub fn material_mut(&mut self) -> &mut dyn Material {
+        &mut *self.material
     }
 
-    pub fn set_material(&mut self, material: Phong) {
-        self.material = material;
+    pub fn set_material(&mut self, material: impl Material) {
+        self.material = Box::new(material);
     }
 
     pub fn inv_transform(&self) -> &Matrix {
@@ -333,7 +336,7 @@ impl Shape {
 
     pub fn is_similar(&self, other: &Self) -> bool {
         self.geometry.is_similar(&*other.geometry)
-            && self.material.approx_eq(&other.material)
+            && self.material.is_similar(&*other.material)
             && self.transform.approx_eq(&other.transform)
     }
 

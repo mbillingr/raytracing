@@ -3,7 +3,7 @@ use raytracing::color::color;
 use raytracing::lights::{Light, PointLight};
 use raytracing::live_preview::{live_preview, Message};
 use raytracing::materials::Phong;
-use raytracing::ray::{hit, Ray};
+use raytracing::ray::{hit, IntersectionState, Ray};
 use raytracing::shapes::sphere;
 use raytracing::tuple::{point, vector};
 use std::fs::File;
@@ -15,7 +15,11 @@ fn main() {
     let (h, tx) = live_preview(width, height, "Chapter 6");
 
     let mut obj = sphere();
-    obj.set_material(Phong::default().with_shininess(20.0));
+    obj.set_material(
+        Phong::default()
+            .with_rgb(0.2, 0.8, 0.9)
+            .with_shininess(20.0),
+    );
 
     let scene = vec![obj];
     let light = PointLight::new(point(1, 9, -10), color(1, 1, 1));
@@ -41,13 +45,20 @@ fn main() {
                 let p = ray.position(t);
                 let eyev = -ray.direction();
                 let normalv = obj.normal_at(p, &intersection);
-                let color = obj.material().lighting(
-                    color(0.2, 0.8, 0.9),
-                    light.incoming_at(p),
+                let comps = IntersectionState {
+                    t,
+                    obj,
+                    inside: false,
+                    point: p,
+                    over_point: p,
+                    under_point: p,
                     eyev,
                     normalv,
-                    false,
-                );
+                    reflectv: vector(0, 0, 0),
+                    n1: 1.0,
+                    n2: 1.0,
+                };
+                let color = obj.material().lighting(light.incoming_at(p), &comps, false);
                 canvas.set_pixel(i, j, color);
                 tx.send(Message::set_pixel(i, j, color)).unwrap();
             }

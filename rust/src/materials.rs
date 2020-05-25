@@ -1,8 +1,40 @@
+use crate::approx_eq::{ApproximateEq, EPSILON};
 use crate::color::{color, Color, BLACK};
 use crate::lights::IncomingLight;
 use crate::pattern::Pattern;
-use crate::ray::IntersectionState;
+use crate::photon_map::TravellingPhoton;
+use crate::ray::{IntersectionState, Ray};
 use crate::tuple::Vector;
+use crate::world::World;
+use rand::distributions::{Distribution, WeightedIndex};
+use rand::thread_rng;
+use std::any::Any;
+use std::f64::consts::PI;
+
+pub trait Material: 'static + std::fmt::Debug + Sync {
+    fn as_any(&self) -> &dyn Any;
+    fn box_clone(&self) -> Box<dyn Material>;
+    fn is_similar(&self, other: &dyn Material) -> bool;
+
+    fn color_at(&self, comps: &IntersectionState) -> Color;
+    fn lighting(&self, light: IncomingLight, comps: &IntersectionState, in_shadow: bool) -> Color;
+    fn shade_hit(&self, world: &World, comps: &IntersectionState, remaining_bounces: u32) -> Color;
+
+    fn photon_hit(
+        &self,
+        photon: TravellingPhoton,
+        comps: &IntersectionState,
+        enable_diffuse: bool,
+    ) -> (Option<TravellingPhoton>, Option<TravellingPhoton>);
+
+    fn refractive_index(&self) -> f64;
+}
+
+impl Clone for Box<dyn Material> {
+    fn clone(&self) -> Self {
+        self.box_clone()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum SurfaceColor {
@@ -245,6 +277,186 @@ impl Phong {
                 diffuse + specular
             }
         }
+    }
+
+    pub fn reflected_color(
+        &self,
+        world: &World,
+        comps: &IntersectionState,
+        remaining_bounces: u32,
+    ) -> Color {
+        let r = self.reflective();
+        if r == 0.0 || remaining_bounces == 0 {
+            BLACK
+        } else {
+            world
+                .color_at(
+                    &Ray::new(comps.over_point, comps.reflectv),
+                    remaining_bounces - 1,
+                )
+                .map(|c| c * r)
+                .unwrap_or(BLACK)
+        }
+    }
+
+    pub fn refracted_color(
+        &self,
+        world: &World,
+        comps: &IntersectionState,
+        remaining_bounces: u32,
+    ) -> Color {
+        if remaining_bounces == 0 || self.transparency() == 0.0 {
+            color(0, 0, 0)
+        } else {
+            let n_ratio = comps.n1 / comps.n2;
+            let cos_i = comps.eyev.dot(&comps.normalv);
+            let sin2_t = n_ratio * n_ratio * (1.0 - cos_i * cos_i);
+            if sin2_t > 1.0 {
+                color(0, 0, 0)
+            } else {
+                let cos_t = (1.0 - sin2_t).sqrt();
+                let direction = comps.normalv * (n_ratio * cos_i - cos_t) - comps.eyev * n_ratio;
+                world
+                    .color_at(
+                        &Ray::new(comps.under_point, direction),
+                        remaining_bounces - 1,
+                    )
+                    .map(|c| c * self.transparency())
+                    .unwrap_or(BLACK)
+            }
+        }
+    }
+}
+
+impl Material for Phong {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn box_clone(&self) -> Box<dyn Material> {
+        Box::new(self.clone())
+    }
+
+    fn is_similar(&self, other: &dyn Material) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .map(|o| self.approx_eq(o))
+            .unwrap_or(false)
+    }
+
+    fn color_at(&self, comps: &IntersectionState) -> Color {
+        Phong::color_at(self, comps)
+    }
+
+    fn lighting(&self, light: IncomingLight, comps: &IntersectionState, in_shadow: bool) -> Color {
+        Phong::lighting(
+            self,
+            self.color_at(comps),
+            light,
+            comps.eyev,
+            comps.normalv,
+            in_shadow,
+        )
+    }
+
+    fn shade_hit(&self, world: &World, comps: &IntersectionState, remaining_bounces: u32) -> Color {
+        let surface_color = self.color_at(&comps);
+
+        let mut surface = BLACK;
+
+        if world.photon_map_enabled() {
+            if let Some((pm, n_nearest)) = world.get_photon_map() {
+                let (photons, square_radius) = pm.find_nearest(n_nearest, comps.point);
+                let total_light = photons.iter().fold(BLACK, |color, photon| {
+                    color + comps.normalv.dot(&photon.direction()).max(0.0) * photon.power()
+                });
+                surface = surface + surface_color * total_light / (PI * square_radius);
+            }
+        }
+
+        if world.direct_illumination_enabled() {
+            surface = surface
+                + world.lights().iter().fold(BLACK, |color, light| {
+                    let incoming_light = light.incoming_at(comps.over_point);
+                    let in_shadow = world.is_shadowed(&incoming_light, comps.over_point);
+                    color
+                        + comps
+                            .obj
+                            .material()
+                            .lighting(incoming_light, &comps, in_shadow)
+                });
+        }
+
+        surface = surface.clip(0.0, 1.0);
+
+        let emissive = surface_color * self.emissive;
+
+        let reflected = self.reflected_color(world, &comps, remaining_bounces);
+        let refracted = self.refracted_color(world, &comps, remaining_bounces);
+
+        if self.reflective() > 0.0 && self.transparency() > 0.0 {
+            let reflectance = comps.schlick();
+            surface + reflected * reflectance + refracted * (1.0 - reflectance) + emissive
+        } else {
+            surface + reflected + refracted + emissive
+        }
+    }
+
+    fn photon_hit(
+        &self,
+        photon: TravellingPhoton,
+        comps: &IntersectionState,
+        enable_diffuse: bool,
+    ) -> (Option<TravellingPhoton>, Option<TravellingPhoton>) {
+        let mut stored_photon = None;
+        let next_photon;
+
+        let diffuse_reflectance = self.diffuse() * self.color_at(comps);
+        let mut specular_reflectance = self.specular().max(self.reflective()); // TODO: Is this correct?
+        let mut transmittance = self.transparency();
+
+        let mut pd_avg = diffuse_reflectance.sum() / 3.0;
+
+        if pd_avg > EPSILON {
+            stored_photon = Some(photon);
+        }
+
+        if !enable_diffuse {
+            pd_avg = 0.0;
+        }
+
+        if self.reflective() > 0.0 && self.transparency() > 0.0 {
+            let r = comps.schlick();
+            specular_reflectance *= r;
+            transmittance *= 1.0 - r;
+        }
+
+        let p_absorb = 1.0 - pd_avg - specular_reflectance - transmittance;
+        assert!(p_absorb >= 0.0);
+        assert!(p_absorb <= 1.0);
+
+        let dist =
+            WeightedIndex::new(&[p_absorb, pd_avg, specular_reflectance, transmittance]).unwrap();
+        match dist.sample(&mut thread_rng()) {
+            0 => next_photon = None,
+            1 => {
+                next_photon =
+                    Some(photon.scatter(comps.over_point, comps.normalv, diffuse_reflectance))
+            }
+            2 => next_photon = Some(photon.reflect(comps.over_point, comps.normalv)),
+            3 => {
+                next_photon =
+                    Some(photon.refract(comps.under_point, comps.normalv, comps.n1, comps.n2))
+            }
+            _ => unreachable!(),
+        };
+
+        (stored_photon, next_photon)
+    }
+
+    fn refractive_index(&self) -> f64 {
+        Phong::refractive_index(self)
     }
 }
 

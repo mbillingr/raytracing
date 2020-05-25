@@ -204,8 +204,9 @@ mod tests {
     #[test]
     fn glassy_sphere() {
         let s = glass_sphere();
+        let m = s.material().as_any().downcast_ref::<Phong>().unwrap();
         assert_almost_eq!(s.inv_transform(), Matrix::identity());
-        assert_almost_eq!(s.material().transparency(), 1.0);
-        assert_almost_eq!(s.material().refractive_index(), 1.5);
+        assert_almost_eq!(m.transparency(), 1.0);
+        assert_almost_eq!(m.refractive_index(), 1.5);
     }
 }

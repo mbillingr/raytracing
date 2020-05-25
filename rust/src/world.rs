@@ -1,5 +1,5 @@
 use crate::approx_eq::EPSILON;
-use crate::color::{color, Color, BLACK};
+use crate::color::{color, Color};
 use crate::lights::{IncomingLight, Light, PointLight};
 use crate::materials::Phong;
 use crate::matrix::{scaling, Matrix};
@@ -10,7 +10,6 @@ use crate::tuple::{point, Point};
 use rand::distributions::WeightedIndex;
 use rand::{distributions::Distribution, thread_rng, Rng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::f64::consts::PI;
 
 pub struct World {
     lights: Vec<Box<dyn Light>>,
@@ -31,22 +30,26 @@ impl Default for World {
                 color(1, 1, 1),
             ))],
             vec![
+                sphere().with_material(default_material1()).into(),
                 sphere()
-                    .with_material(
-                        Phong::default()
-                            .with_color(color(0.8, 1.0, 0.6))
-                            .with_emissive(0.1)
-                            .with_diffuse(0.7)
-                            .with_specular(0.2),
-                    )
-                    .into(),
-                sphere()
-                    .with_material(Phong::default().with_emissive(0.1))
+                    .with_material(default_material2())
                     .with_transform(scaling(0.5, 0.5, 0.5))
                     .into(),
             ],
         )
     }
+}
+
+fn default_material1() -> Phong {
+    Phong::default()
+        .with_color(color(0.8, 1.0, 0.6))
+        .with_emissive(0.1)
+        .with_diffuse(0.7)
+        .with_specular(0.2)
+}
+
+fn default_material2() -> Phong {
+    Phong::default().with_emissive(0.1)
 }
 
 impl World {
@@ -101,73 +104,42 @@ impl World {
         }
     }
 
+    pub fn lights(&self) -> &[Box<dyn Light>] {
+        &self.lights
+    }
+
     pub fn trace(&self, ray: &Ray) -> Option<Color> {
         self.color_at(ray, self.max_reflection_depth)
     }
 
-    fn color_at(&self, ray: &Ray, remaining_bounces: u32) -> Option<Color> {
+    pub fn color_at(&self, ray: &Ray, remaining_bounces: u32) -> Option<Color> {
         let xs = self.intersect(ray);
         hit(&xs).map(|i| self.shade_hit(i.prepare_computations(&ray, &xs), remaining_bounces))
     }
 
-    fn photon_map_enabled(&self) -> bool {
+    pub fn direct_illumination_enabled(&self) -> bool {
+        self.direct_illumination_enabled
+    }
+
+    pub fn photon_map_enabled(&self) -> bool {
         self.direct_photon_map_enabled
             || self.caustic_photon_map_enabled
             || self.diffuse_photon_map_enabled
     }
 
-    fn direct_photon_map_only(&self) -> bool {
+    pub fn direct_photon_map_only(&self) -> bool {
         self.direct_photon_map_enabled
             && !self.caustic_photon_map_enabled
             && !self.diffuse_photon_map_enabled
     }
 
+    pub fn get_photon_map(&self) -> Option<(&PhotonMap, usize)> {
+        self.photon_map.as_ref().map(|(pm, n)| (pm, *n))
+    }
+
     fn shade_hit(&self, comps: IntersectionState, remaining_bounces: u32) -> Color {
         let material = comps.obj.material();
-
-        let surface_color = material.color_at(&comps);
-
-        let mut surface = BLACK;
-
-        if self.photon_map_enabled() {
-            if let Some((pm, n_nearest)) = self.photon_map.as_ref() {
-                let (photons, square_radius) = pm.find_nearest(*n_nearest, comps.point);
-                let total_light = photons.iter().fold(BLACK, |color, photon| {
-                    color + comps.normalv.dot(&photon.direction()).max(0.0) * photon.power()
-                });
-                surface = surface + surface_color * total_light / (PI * square_radius);
-            }
-        }
-
-        if self.direct_illumination_enabled {
-            surface = surface
-                + self.lights.iter().fold(BLACK, |color, light| {
-                    let incoming_light = light.incoming_at(comps.over_point);
-                    let in_shadow = self.is_shadowed(&incoming_light, comps.over_point);
-                    color
-                        + comps.obj.material().lighting(
-                            surface_color,
-                            incoming_light,
-                            comps.eyev,
-                            comps.normalv,
-                            in_shadow,
-                        )
-                });
-        }
-
-        surface = surface.clip(0.0, 1.0);
-
-        let emissive = surface_color * material.emissive();
-
-        let reflected = self.reflected_color(&comps, remaining_bounces);
-        let refracted = self.refracted_color(&comps, remaining_bounces);
-
-        if material.reflective() > 0.0 && material.transparency() > 0.0 {
-            let reflectance = comps.schlick();
-            surface + reflected * reflectance + refracted * (1.0 - reflectance) + emissive
-        } else {
-            surface + reflected + refracted + emissive
-        }
+        material.shade_hit(self, &comps, remaining_bounces)
     }
 
     pub fn intersect(&self, ray: &Ray) -> Vec<Intersection> {
@@ -207,40 +179,8 @@ impl World {
         }
     }
 
-    fn reflected_color(&self, comps: &IntersectionState, remaining_bounces: u32) -> Color {
-        let r = comps.obj.material().reflective();
-        if r == 0.0 || remaining_bounces == 0 {
-            BLACK
-        } else {
-            self.color_at(
-                &Ray::new(comps.over_point, comps.reflectv),
-                remaining_bounces - 1,
-            )
-            .map(|c| c * r)
-            .unwrap_or(BLACK)
-        }
-    }
-
-    fn refracted_color(&self, comps: &IntersectionState, remaining_bounces: u32) -> Color {
-        if remaining_bounces == 0 || comps.obj.material().transparency() == 0.0 {
-            color(0, 0, 0)
-        } else {
-            let n_ratio = comps.n1 / comps.n2;
-            let cos_i = comps.eyev.dot(&comps.normalv);
-            let sin2_t = n_ratio * n_ratio * (1.0 - cos_i * cos_i);
-            if sin2_t > 1.0 {
-                color(0, 0, 0)
-            } else {
-                let cos_t = (1.0 - sin2_t).sqrt();
-                let direction = comps.normalv * (n_ratio * cos_i - cos_t) - comps.eyev * n_ratio;
-                self.color_at(
-                    &Ray::new(comps.under_point, direction),
-                    remaining_bounces - 1,
-                )
-                .map(|c| c * comps.obj.material().transparency())
-                .unwrap_or(BLACK)
-            }
-        }
+    pub fn drop_photon_map(&mut self) {
+        self.photon_map = None;
     }
 
     pub fn compute_photon_map(
@@ -249,6 +189,8 @@ impl World {
         n_nearest: usize,
         max_search_radius: f64,
     ) {
+        self.drop_photon_map(); // Save some memory
+
         log::info!("Tracing {} photons", n_photons);
         let photons = (0..n_photons)
             .into_par_iter()
@@ -275,12 +217,18 @@ impl World {
     pub fn trace_photon(
         &self,
         mut photon: TravellingPhoton,
-        rng: &mut impl Rng,
+        _rng: &mut impl Rng,
     ) -> Vec<StoredPhoton> {
         let mut hits = vec![];
         loop {
             if photon.power() < EPSILON {
                 return hits;
+            }
+
+            match photon.kind() {
+                PhotonKind::Direct => {}
+                _ if self.direct_photon_map_only() => return hits,
+                _ => {}
             }
 
             let xs = self.intersect(photon.ray());
@@ -292,49 +240,24 @@ impl World {
             let comps = hit.prepare_computations(&photon.ray(), &xs);
             let mat = hit.obj.material();
 
-            let diffuse_reflectance = mat.diffuse() * mat.color_at(&comps);
-            let mut specular_reflectance = mat.specular().max(mat.reflective()); // TODO: Is this correct?
-            let mut transmittance = mat.transparency();
+            let (store_photon, next_photon) =
+                mat.photon_hit(photon, &comps, self.diffuse_photon_map_enabled);
 
-            let mut pd_avg = diffuse_reflectance.sum() / 3.0;
-
-            if pd_avg > EPSILON {
-                if match photon.kind() {
+            if let Some(p) = store_photon {
+                if match p.kind() {
                     PhotonKind::Direct if self.direct_photon_map_enabled => true,
                     PhotonKind::Diffuse if self.diffuse_photon_map_enabled => true,
                     PhotonKind::Caustic if self.caustic_photon_map_enabled => true,
                     _ => false,
                 } {
-                    hits.push(photon.store(comps.point));
-
-                    if self.direct_photon_map_only() {
-                        return hits;
-                    }
+                    hits.push(p.store(comps.point));
                 }
             }
 
-            if !self.diffuse_photon_map_enabled {
-                pd_avg = 0.0;
-            }
-
-            if mat.reflective() > 0.0 && mat.transparency() > 0.0 {
-                let r = comps.schlick();
-                specular_reflectance *= r;
-                transmittance *= 1.0 - r;
-            }
-
-            let p_absorb = 1.0 - pd_avg - specular_reflectance - transmittance;
-            assert!(p_absorb >= 0.0);
-            assert!(p_absorb <= 1.0);
-
-            let dist = WeightedIndex::new(&[p_absorb, pd_avg, specular_reflectance, transmittance])
-                .unwrap();
-            match dist.sample(rng) {
-                0 => return hits,
-                1 => photon = photon.scatter(comps.over_point, comps.normalv, diffuse_reflectance),
-                2 => photon = photon.reflect(comps.over_point, comps.normalv),
-                3 => photon = photon.refract(comps.under_point, comps.normalv, comps.n1, comps.n2),
-                _ => unreachable!(),
+            if let Some(p) = next_photon {
+                photon = p;
+            } else {
+                return hits;
             }
         }
     }
@@ -345,7 +268,7 @@ mod tests {
     use super::*;
     use crate::approx_eq::ApproximateEq;
     use crate::approx_eq::FindSimilar;
-    use crate::color::color;
+    use crate::color::{color, BLACK};
     use crate::materials::{Phong, SurfaceColor};
     use crate::matrix::{scaling, translation};
     use crate::pattern::Pattern;
@@ -446,6 +369,9 @@ mod tests {
             .as_shape()
             .unwrap()
             .material()
+            .as_any()
+            .downcast_ref::<Phong>()
+            .unwrap()
             .clone()
             .with_emissive(1.0);
         w.objects[0].as_shape_mut().unwrap().set_material(m0);
@@ -453,6 +379,9 @@ mod tests {
             .as_shape()
             .unwrap()
             .material()
+            .as_any()
+            .downcast_ref::<Phong>()
+            .unwrap()
             .clone()
             .with_emissive(1.0);
         w.objects[1]
@@ -525,14 +454,18 @@ mod tests {
     fn reflect_nothing() {
         let mut w = World::default();
         let r = Ray::new(point(0, 0, 0), vector(0, 0, 1));
-        w.objects[1]
-            .as_shape_mut()
-            .unwrap()
-            .material_mut()
-            .set_emissive(1.0);
+        let mat = default_material2().with_emissive(1.0);
+        w.objects[1].as_shape_mut().unwrap().set_material(mat);
         let i = Intersection::new(1.0, w.objects[1].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
-        let c = w.reflected_color(&comps, 1);
+        let c = w.objects[1]
+            .as_shape()
+            .unwrap()
+            .material()
+            .as_any()
+            .downcast_ref::<Phong>()
+            .unwrap()
+            .reflected_color(&w, &comps, 1);
         assert_almost_eq!(c, color(0, 0, 0));
     }
 
@@ -541,13 +474,20 @@ mod tests {
     fn reflection() {
         let mut w = World::default();
         let mut shape = plane();
-        shape.material_mut().set_reflective(0.5);
+        shape.set_material(Phong::default().with_reflective(0.5));
         shape.set_transform(translation(0, -1, 0));
         w.add_item(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
-        let c = w.reflected_color(&comps, 1);
+        let c = w.objects[2]
+            .as_shape()
+            .unwrap()
+            .material()
+            .as_any()
+            .downcast_ref::<Phong>()
+            .unwrap()
+            .reflected_color(&w, &comps, 1);
         assert_almost_eq!(c, color(0.19033, 0.23792, 0.14274));
     }
 
@@ -556,7 +496,7 @@ mod tests {
     fn shade_reflection() {
         let mut w = World::default();
         let mut shape = plane();
-        shape.material_mut().set_reflective(0.5);
+        shape.set_material(Phong::default().with_reflective(0.5));
         shape.set_transform(translation(0, -1, 0));
         w.add_item(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
@@ -571,13 +511,20 @@ mod tests {
     fn max_reflect() {
         let mut w = World::default();
         let mut shape = plane();
-        shape.material_mut().set_reflective(0.5);
+        shape.set_material(Phong::default().with_reflective(0.5));
         shape.set_transform(translation(0, -1, 0));
         w.add_item(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
         let comps = i.prepare_computations(&r, &[i]);
-        let c = w.reflected_color(&comps, 0);
+        let c = w.objects[2]
+            .as_shape()
+            .unwrap()
+            .material()
+            .as_any()
+            .downcast_ref::<Phong>()
+            .unwrap()
+            .reflected_color(&w, &comps, 0);
         assert_almost_eq!(c, color(0, 0, 0));
     }
 
@@ -617,7 +564,12 @@ mod tests {
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
         let xs = intersections![Intersection::new(4.0, shape), Intersection::new(6.0, shape)];
         let comps = xs[0].prepare_computations(&r, &xs);
-        let c = w.refracted_color(&comps, 5);
+        let c = shape
+            .material()
+            .as_any()
+            .downcast_ref::<Phong>()
+            .unwrap()
+            .refracted_color(&w, &comps, 5);
         assert_almost_eq!(c, color(0, 0, 0));
     }
 
@@ -625,21 +577,21 @@ mod tests {
     #[test]
     fn refract_recursion_limit() {
         let mut w = World::default();
-        w.objects[0]
-            .as_shape_mut()
-            .unwrap()
-            .material_mut()
-            .set_transparency(1.0);
-        w.objects[0]
-            .as_shape_mut()
-            .unwrap()
-            .material_mut()
-            .set_refractive_index(1.5);
+        w.objects[0].as_shape_mut().unwrap().set_material(
+            default_material1()
+                .with_transparency(1.0)
+                .with_refractive_index(1.5),
+        );
         let shape = w.objects[0].as_shape().unwrap();
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
         let xs = intersections![Intersection::new(4.0, shape), Intersection::new(6.0, shape)];
         let comps = xs[0].prepare_computations(&r, &xs);
-        let c = w.refracted_color(&comps, 0);
+        let c = shape
+            .material()
+            .as_any()
+            .downcast_ref::<Phong>()
+            .unwrap()
+            .refracted_color(&w, &comps, 0);
         assert_almost_eq!(c, color(0, 0, 0));
     }
 
@@ -647,16 +599,11 @@ mod tests {
     #[test]
     fn refract_total_internal_reflection() {
         let mut w = World::default();
-        w.objects[0]
-            .as_shape_mut()
-            .unwrap()
-            .material_mut()
-            .set_transparency(1.0);
-        w.objects[0]
-            .as_shape_mut()
-            .unwrap()
-            .material_mut()
-            .set_refractive_index(1.5);
+        w.objects[0].as_shape_mut().unwrap().set_material(
+            default_material1()
+                .with_transparency(1.0)
+                .with_refractive_index(1.5),
+        );
         let shape = w.objects[0].as_shape().unwrap();
         let r = Ray::new(point(0, 0, FRAC_1_SQRT_2), vector(0, 1, 0));
         let xs = intersections![
@@ -664,7 +611,12 @@ mod tests {
             Intersection::new(FRAC_1_SQRT_2, shape)
         ];
         let comps = xs[1].prepare_computations(&r, &xs);
-        let c = w.refracted_color(&comps, 5);
+        let c = shape
+            .material()
+            .as_any()
+            .downcast_ref::<Phong>()
+            .unwrap()
+            .refracted_color(&w, &comps, 5);
         assert_almost_eq!(c, color(0, 0, 0));
     }
 
@@ -676,26 +628,16 @@ mod tests {
         }
 
         let mut w = World::default();
-        w.objects[0]
-            .as_shape_mut()
-            .unwrap()
-            .material_mut()
-            .set_emissive(1.0);
-        w.objects[0]
-            .as_shape_mut()
-            .unwrap()
-            .material_mut()
-            .set_pattern(test_pattern());
-        w.objects[1]
-            .as_shape_mut()
-            .unwrap()
-            .material_mut()
-            .set_transparency(1.0);
-        w.objects[1]
-            .as_shape_mut()
-            .unwrap()
-            .material_mut()
-            .set_refractive_index(1.5);
+        w.objects[0].as_shape_mut().unwrap().set_material(
+            default_material1()
+                .with_emissive(1.0)
+                .with_pattern(test_pattern()),
+        );
+        w.objects[1].as_shape_mut().unwrap().set_material(
+            default_material2()
+                .with_transparency(1.0)
+                .with_refractive_index(1.5),
+        );
         let a = w.objects[0].as_shape().unwrap();
         let b = w.objects[1].as_shape().unwrap();
 
@@ -707,7 +649,12 @@ mod tests {
             Intersection::new(0.9899, a)
         ];
         let comps = xs[2].prepare_computations(&r, &xs);
-        let c = w.refracted_color(&comps, 5);
+        let c = b
+            .material()
+            .as_any()
+            .downcast_ref::<Phong>()
+            .unwrap()
+            .refracted_color(&w, &comps, 5);
         assert_almost_eq!(c, color(0, 0.99888, 0.04722));
     }
 
