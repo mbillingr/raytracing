@@ -3,7 +3,7 @@ use crate::color::{color, Color, BLACK};
 use crate::lights::IncomingLight;
 use crate::pattern::Pattern;
 use crate::photon_map::TravellingPhoton;
-use crate::ray::{IntersectionState, Ray};
+use crate::ray::{Intersection, IntersectionState, Ray};
 use crate::tuple::Vector;
 use crate::world::World;
 use rand::distributions::{Distribution, WeightedIndex};
@@ -26,6 +26,14 @@ pub trait Material: 'static + std::fmt::Debug + Sync {
         comps: &IntersectionState,
         enable_diffuse: bool,
     ) -> (Option<TravellingPhoton>, Option<TravellingPhoton>);
+
+    fn transform_photon(
+        &self,
+        _photon: TravellingPhoton,
+        _potential_hit: Option<Intersection>,
+    ) -> Option<TravellingPhoton> {
+        None
+    }
 
     fn refractive_index(&self) -> f64;
 }

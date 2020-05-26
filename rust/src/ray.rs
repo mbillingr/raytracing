@@ -1,4 +1,5 @@
 use crate::approx_eq::EPSILON;
+use crate::materials::Material;
 use crate::matrix::Matrix;
 use crate::shapes::Shape;
 use crate::tuple::{Point, Vector};
@@ -68,7 +69,11 @@ impl<'a> Intersection<'a> {
         Intersection { i, ..self }
     }
 
-    pub fn prepare_computations(&self, ray: &Ray, xs: &[Intersection]) -> IntersectionState {
+    pub fn prepare_computations<'b: 'a>(
+        &self,
+        ray: &Ray,
+        xs: &'b [Intersection<'a>],
+    ) -> IntersectionState {
         let point = ray.position(self.t);
         let eyev = -ray.direction();
         let normalv = self.obj.normal_at(point, self);
@@ -77,6 +82,7 @@ impl<'a> Intersection<'a> {
         let over_point = point + normalv * EPSILON;
         let under_point = point - normalv * EPSILON;
         let reflectv = ray.direction().reflect(&normalv);
+        let (mat1, mat2) = self.compute_materials(xs);
         let (n1, n2) = self.compute_refractive_indices(xs);
         IntersectionState {
             t: self.t,
@@ -90,20 +96,29 @@ impl<'a> Intersection<'a> {
             reflectv,
             n1,
             n2,
+            mat1,
+            mat2,
         }
     }
 
     pub fn compute_refractive_indices(&self, xs: &[Intersection]) -> (f64, f64) {
+        let (mat1, mat2) = self.compute_materials(xs);
+        let n1 = mat1.map(Material::refractive_index).unwrap_or(1.0);
+        let n2 = mat2.map(Material::refractive_index).unwrap_or(1.0);
+        (n1, n2)
+    }
+
+    pub fn compute_materials(
+        &self,
+        xs: &'a [Intersection],
+    ) -> (Option<&dyn Material>, Option<&dyn Material>) {
         let mut containers: Vec<&Shape> = vec![];
 
-        let mut n1 = 0.0;
+        let mut mat1 = None;
 
         for i in xs {
             if i == self {
-                n1 = containers
-                    .last()
-                    .map(|shape| shape.material().refractive_index())
-                    .unwrap_or(1.0);
+                mat1 = containers.last().map(|shape| shape.material());
             }
 
             if let Some(idx) = containers
@@ -116,11 +131,8 @@ impl<'a> Intersection<'a> {
             }
 
             if i == self {
-                let n2 = containers
-                    .last()
-                    .map(|shape| shape.material().refractive_index())
-                    .unwrap_or(1.0);
-                return (n1, n2);
+                let mat2 = containers.last().map(|shape| shape.material());
+                return (mat1, mat2);
             }
         }
 
@@ -141,6 +153,27 @@ pub fn hit<'a>(xs: &[Intersection<'a>]) -> Option<Intersection<'a>> {
     xs.iter().filter(|i| i.t >= 0.0).next().copied()
 }
 
+pub fn origin_object<'a>(xs: &[Intersection<'a>]) -> Option<&'a Shape> {
+    let mut containers: Vec<&Shape> = vec![];
+
+    for i in xs {
+        if i.t > 0.0 {
+            return containers.pop();
+        }
+
+        if let Some(idx) = containers
+            .iter()
+            .position(|&shape| std::ptr::eq(shape, i.obj))
+        {
+            containers.remove(idx);
+        } else {
+            containers.push(i.obj);
+        }
+    }
+
+    None
+}
+
 pub struct IntersectionState<'a> {
     pub t: f64,
     pub obj: &'a Shape,
@@ -153,6 +186,8 @@ pub struct IntersectionState<'a> {
     pub reflectv: Vector,
     pub n1: f64,
     pub n2: f64,
+    pub mat1: Option<&'a dyn Material>,
+    pub mat2: Option<&'a dyn Material>,
 }
 
 impl IntersectionState<'_> {
@@ -208,7 +243,7 @@ mod tests {
     use crate::approx_eq::ApproximateEq;
     use crate::materials::Phong;
     use crate::matrix::{rotation_x, scaling, translation};
-    use crate::shapes::{glass_sphere, plane, sphere, triangle};
+    use crate::shapes::{cube, glass_sphere, plane, sphere, triangle};
     use crate::tuple::{point, vector};
     use std::f32::consts::PI;
     use std::f64::consts::{FRAC_1_SQRT_2, SQRT_2};
@@ -336,7 +371,8 @@ mod tests {
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
         let shape = sphere();
         let i = Intersection::new(4.0, &shape);
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         assert_eq!(comps.t, i.t);
         assert_eq!(comps.obj as *const _, i.obj as *const _);
         assert!(!comps.inside);
@@ -351,7 +387,8 @@ mod tests {
         let r = Ray::new(point(0, 0, 0), vector(0, 0, 1));
         let shape = sphere();
         let i = Intersection::new(1.0, &shape);
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         assert!(comps.inside);
         assert_almost_eq!(comps.point, point(0, 0, 1));
         assert_almost_eq!(comps.normalv, vector(0, 0, -1)); // inverted!
@@ -363,7 +400,8 @@ mod tests {
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
         let shape = sphere().with_transform(translation(0, 0, 1));
         let i = Intersection::new(5.0, &shape);
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         assert!(comps.over_point.z() < -EPSILON / 2.0);
         assert!(comps.over_point.z() < comps.point.z());
     }
@@ -374,8 +412,9 @@ mod tests {
         let shape = plane();
         let r = Ray::new(point(0, 1, -1), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let i = Intersection::new(SQRT_2, &shape);
-        let comp = i.prepare_computations(&r, &[i]);
-        assert_almost_eq!(comp.reflectv, vector(0, FRAC_1_SQRT_2, FRAC_1_SQRT_2));
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
+        assert_almost_eq!(comps.reflectv, vector(0, FRAC_1_SQRT_2, FRAC_1_SQRT_2));
     }
 
     /// Finding n1 and n2 at various intersections
@@ -428,7 +467,8 @@ mod tests {
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
         let shape = glass_sphere().with_transform(translation(0, 0, 1));
         let i = Intersection::new(5.0, &shape);
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         assert!(comps.under_point.z() > EPSILON / 2.0);
         assert!(comps.under_point.z() > comps.point.z());
     }
@@ -479,5 +519,76 @@ mod tests {
         let i = Intersection::new_uv(3.5, 0.2, 0.4, &s);
         assert_eq!(i.u, 0.2);
         assert_eq!(i.v, 0.4);
+    }
+
+    /// A ray that does not hit anything cannot start inside an object
+    #[test]
+    fn ray_hits_nothing_has_no_originating_object() {
+        let xs = intersections![];
+        assert!(origin_object(&xs).is_none());
+    }
+
+    /// A ray that starts outside an object
+    #[test]
+    fn ray_starts_outside_an_object() {
+        let shape = sphere();
+        let xs = intersections![
+            Intersection::new(1.0, &shape),
+            Intersection::new(3.0, &shape)
+        ];
+        assert!(origin_object(&xs).is_none());
+    }
+
+    /// A ray that starts inside an object
+    #[test]
+    fn ray_starts_inside_an_object() {
+        let shape = sphere();
+        let xs = intersections![
+            Intersection::new(-1.0, &shape),
+            Intersection::new(1.0, &shape)
+        ];
+        assert_almost_eq!(origin_object(&xs).unwrap(), &shape);
+    }
+
+    /// A ray that starts between two bjects
+    #[test]
+    fn ray_starts_between_objects() {
+        let a = sphere();
+        let b = sphere();
+        let xs = intersections![
+            Intersection::new(-3.0, &a),
+            Intersection::new(-1.0, &a),
+            Intersection::new(1.0, &b),
+            Intersection::new(3.0, &b)
+        ];
+        assert!(origin_object(&xs).is_none());
+    }
+
+    /// A ray that starts inside two objects
+    #[test]
+    fn ray_starts_inside_two_objects() {
+        let a = sphere();
+        let b = cube();
+        let xs = intersections![
+            Intersection::new(-2.0, &a),
+            Intersection::new(-1.0, &b),
+            Intersection::new(1.0, &b),
+            Intersection::new(2.0, &a)
+        ];
+        assert_almost_eq!(origin_object(&xs).unwrap(), &b);
+    }
+
+    /// A ray that starts inside two overlapping objects
+    #[test]
+    fn ray_starts_inside_overlapping_objects() {
+        let a = sphere();
+        let b = cube();
+        let xs = intersections![
+            Intersection::new(-2.0, &a),
+            Intersection::new(-1.0, &b),
+            Intersection::new(1.0, &a),
+            Intersection::new(2.0, &b)
+        ];
+        assert_almost_eq!(origin_object(&xs).unwrap(), &b);
     }
 }

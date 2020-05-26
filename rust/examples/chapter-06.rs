@@ -57,6 +57,8 @@ fn main() {
                     reflectv: vector(0, 0, 0),
                     n1: 1.0,
                     n2: 1.0,
+                    mat1: None,
+                    mat2: None,
                 };
                 let color = obj.material().lighting(light.incoming_at(p), &comps, false);
                 canvas.set_pixel(i, j, color);

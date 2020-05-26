@@ -4,7 +4,7 @@ use crate::lights::{IncomingLight, Light, PointLight};
 use crate::materials::Phong;
 use crate::matrix::{scaling, Matrix};
 use crate::photon_map::{PhotonKind, PhotonMap, StoredPhoton, TravellingPhoton};
-use crate::ray::{hit, Intersection, IntersectionState, Ray};
+use crate::ray::{hit, origin_object, Intersection, IntersectionState, Ray};
 use crate::shapes::{sphere, SceneItem};
 use crate::tuple::{point, Point};
 use rand::distributions::WeightedIndex;
@@ -232,7 +232,17 @@ impl World {
             }
 
             let xs = self.intersect(photon.ray());
-            let hit = match hit(&xs) {
+
+            let maybe_hit = hit(&xs);
+
+            if let Some(obj) = origin_object(&xs) {
+                if let Some(p) = obj.material().transform_photon(photon, maybe_hit) {
+                    photon = p;
+                    continue;
+                }
+            }
+
+            let hit = match maybe_hit {
                 Some(h) => h,
                 None => return hits,
             };
@@ -324,7 +334,8 @@ mod tests {
         let r = Ray::new(point(0, 0, -5), vector(0, 0, 1));
         let shape = w.objects[0].as_shape().unwrap();
         let i = Intersection::new(4.0, shape);
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         let c = w.shade_hit(comps, 0);
         assert_almost_eq!(c, color(0.38066, 0.47583, 0.2855));
     }
@@ -337,7 +348,8 @@ mod tests {
         let shape = w.objects[1].as_shape().unwrap();
         let i = Intersection::new(0.5, shape);
         w.lights = vec![Box::new(PointLight::new(point(0, 0.25, 0), color(1, 1, 1)))];
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         let c = w.shade_hit(comps, 0);
         assert_almost_eq!(c, color(0.90498, 0.90498, 0.90498));
     }
@@ -444,7 +456,8 @@ mod tests {
 
         let r = Ray::new(point(0, 0, 5), vector(0, 0, 1));
         let i = Intersection::new(4.0, w.objects[1].as_shape().unwrap());
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         let c = w.shade_hit(comps, 0);
         assert_almost_eq!(c, BLACK);
     }
@@ -457,7 +470,8 @@ mod tests {
         let mat = default_material2().with_emissive(1.0);
         w.objects[1].as_shape_mut().unwrap().set_material(mat);
         let i = Intersection::new(1.0, w.objects[1].as_shape().unwrap());
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         let c = w.objects[1]
             .as_shape()
             .unwrap()
@@ -479,7 +493,8 @@ mod tests {
         w.add_item(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         let c = w.objects[2]
             .as_shape()
             .unwrap()
@@ -501,7 +516,8 @@ mod tests {
         w.add_item(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         let c = w.shade_hit(comps, 1);
         assert_almost_eq!(c, color(0.77676, 0.82434, 0.72917));
     }
@@ -516,7 +532,8 @@ mod tests {
         w.add_item(shape);
         let r = Ray::new(point(0, 0, -3), vector(0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2));
         let i = Intersection::new(SQRT_2, w.objects[2].as_shape().unwrap());
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         let c = w.objects[2]
             .as_shape()
             .unwrap()

@@ -409,7 +409,8 @@ mod tests {
         let shape = Shape::new(tri);
         let i = Intersection::new_uv(1.0, 0.45, 0.25, &shape);
         let r = Ray::new(point(-0.2, 0.3, -2), vector(0, 0, 1));
-        let comps = i.prepare_computations(&r, &[i]);
+        let xs = [i];
+        let comps = i.prepare_computations(&r, &xs);
         assert_almost_eq!(comps.normalv, vector(-0.5547, 0.83205, 0));
     }
 }
