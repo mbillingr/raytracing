@@ -4,6 +4,8 @@ use vecmath::{
     vec4_square_len, vec4_sub, Vector3, Vector4,
 };
 
+pub const ORIGIN: Point = Point::new(0.0, 0.0, 0.0);
+
 pub fn point(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>) -> Point {
     Point::new(x.into(), y.into(), z.into())
 }
@@ -16,7 +18,7 @@ pub fn vector(x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>) -> Vector
 pub struct Point(pub(crate) Vector4<f64>);
 
 impl Point {
-    pub fn new(x: f64, y: f64, z: f64) -> Self {
+    pub const fn new(x: f64, y: f64, z: f64) -> Self {
         Point([x, y, z, 1.0])
     }
 
