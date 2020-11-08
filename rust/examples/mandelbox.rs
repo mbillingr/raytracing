@@ -12,8 +12,8 @@ use std::fs::File;
 fn main() {
     let mut world = World::empty();
 
-    world.add_light(AmbientLight::new(color(0.1, 0.1, 0.1)));
-    world.add_light(PointLight::new(point(-5, 10, -10), color(1, 1, 1)));
+    //world.add_light(AmbientLight::new(color(0.1, 0.1, 0.1)));
+    //world.add_light(PointLight::new(point(-5, 10, -10), color(1, 1, 1)));
 
     let material = Phong::default()
         .with_color(color(1, 0.9, 0.9))
@@ -22,13 +22,13 @@ fn main() {
 
     let material = MandelMaterial::default();
 
-    let fractal = mandelbox(2.0, 50).with_material(material);
+    let fractal = mandelbox(-1.5, 30).with_material(material);
     world.add_item(fractal);
 
-    let mut camera = Camera::new(900, 450, PI / 3.0).with_view_transform(
-        point(-3.5, 2.5, -7),
-        point(0, 0.5, 0),
-        vector(0, 1, 0),
+    let mut camera = Camera::new(2*900, 2*450, PI / 3.0).with_view_transform(
+        point(-1.8, 1.9, -2.1),
+        point(-1.8, 1.5, -1.8),
+        vector(0, -1, 0),
     );
     camera.set_allowed_standard_error(1e-2);
 

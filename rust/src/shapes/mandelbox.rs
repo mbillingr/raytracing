@@ -51,9 +51,9 @@ impl Geometry for Mandelbox {
     }
 
     fn intersect<'a>(&self, obj: &'a Shape, local_ray: &Ray) -> Vec<Intersection<'a>> {
-        const MIN_DISTANCE: f64 = 1e-5;
+        const MIN_DISTANCE: f64 = 1e-9;
         const MAX_DISTANCE: f64 = 12.0;
-        const FUDGE_FACTOR: f64 = 0.5;
+        const FUDGE_FACTOR: f64 = 0.75;
         let mut c = local_ray.origin();
         let mut ray_len = 0.0;
         let mut last_d = f64::INFINITY;
@@ -123,17 +123,17 @@ impl Material for MandelMaterial {
     }
 
     fn color_at(&self, comps: &IntersectionState) -> Color {
-        let branches = trace_branches(comps.point, 2.0, 3);
-        let mut col = WHITE;
+        let branches = trace_branches(comps.point, -1.5, 20);
+        let mut col = BLACK;
         for b in &branches {
             match b {
-                0 => col = col + color(1, 0, 0),
-                1 => col = col + color(0, 1, 0),
-                2 => col = col + color(0, 0, 1),
+                0 => col = col + color(-0.1, 1.1, -0.1),
+                1 => col = col + color(1.0, 0.2, -0.2),
+                2 => col = col + color(0.5, 0.5, 0.5),
                 _ => unreachable!(),
             }
         }
-        col / (1.0 + branches.len() as f64)
+        col / (0.0 + branches.len() as f64)
     }
 
     fn lighting(&self, light: IncomingLight, comps: &IntersectionState, in_shadow: bool) -> Color {
@@ -154,7 +154,8 @@ impl Material for MandelMaterial {
                 surface_color * xs[0].t
             }
         }*/
-        surface_color * (1.0 - LAST_DEPTH.with(|s| s.get()) as f64 / 200.0)
+        //surface_color * (1.0 - LAST_DEPTH.with(|s| s.get()) as f64 / 100.0)
+        surface_color * 50.0 / LAST_DEPTH.with(|s| s.get()) as f64
     }
 
     fn photon_hit(
