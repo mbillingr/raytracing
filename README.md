@@ -28,6 +28,9 @@ Similarly, the implementation of soft shadows cast by area lights becomes beauti
 # Gallery
 The following images were rendered with the Rust implementation of the ray tracer.
 
+### Mandelbox Fractal
+![](https://raw.githubusercontent.com/mbillingr/raytracing/master/rust/pictures/mandelbox.png)
+
 ### Soft Shadows
 ![](https://raw.githubusercontent.com/mbillingr/raytracing/master/rust/pictures/soft_shadow.png)
 
