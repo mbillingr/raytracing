@@ -51,9 +51,9 @@ impl Geometry for Mandelbox {
     }
 
     fn intersect<'a>(&self, obj: &'a Shape, local_ray: &Ray) -> Vec<Intersection<'a>> {
-        const MIN_DISTANCE: f64 = 1e-6;
-        const MAX_DISTANCE: f64 = 6.0;
-        const FUDGE_FACTOR: f64 = 0.9;
+        const MIN_DISTANCE: f64 = 1e-5;
+        const MAX_DISTANCE: f64 = 12.0;
+        const FUDGE_FACTOR: f64 = 0.5;
         let mut c = local_ray.origin();
         let mut ray_len = 0.0;
         let mut last_d = f64::INFINITY;
@@ -123,8 +123,8 @@ impl Material for MandelMaterial {
     }
 
     fn color_at(&self, comps: &IntersectionState) -> Color {
-        let branches = trace_branches(comps.point, 3.0, 2);
-        let mut col = BLACK;
+        let branches = trace_branches(comps.point, 2.0, 3);
+        let mut col = WHITE;
         for b in &branches {
             match b {
                 0 => col = col + color(1, 0, 0),
@@ -133,7 +133,7 @@ impl Material for MandelMaterial {
                 _ => unreachable!(),
             }
         }
-        col / branches.len() as f64
+        col / (1.0 + branches.len() as f64)
     }
 
     fn lighting(&self, light: IncomingLight, comps: &IntersectionState, in_shadow: bool) -> Color {
@@ -154,7 +154,7 @@ impl Material for MandelMaterial {
                 surface_color * xs[0].t
             }
         }*/
-        surface_color * (100.0 / LAST_DEPTH.with(|s| s.get()) as f64)
+        surface_color * (1.0 - LAST_DEPTH.with(|s| s.get()) as f64 / 200.0)
     }
 
     fn photon_hit(
@@ -180,7 +180,7 @@ pub fn estimate_distance(c: Point, scale: f64, n_iter: usize) -> f64 {
         z = (z1 - ORIGIN) * scale + c;
         dr = dr1 * scale.abs() + 1.0;
     }
-    (z - ORIGIN).len() / dr.abs()
+    ((z - ORIGIN).len() - (scale - 1.0).abs()) / dr.abs() - scale.abs().powi(1 - n_iter as i32)
 }
 
 fn box_fold(z: Point, dz: f64, limit: f64) -> (Point, f64) {

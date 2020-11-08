@@ -22,12 +22,12 @@ fn main() {
 
     let material = MandelMaterial::default();
 
-    let fractal = mandelbox(3.0, 10).with_material(material);
+    let fractal = mandelbox(2.0, 50).with_material(material);
     world.add_item(fractal);
 
-    let mut camera = Camera::new(1500, 800, PI / 3.0).with_view_transform(
-        point(-3, 1.5, -7),
-        point(0, 0, 0),
+    let mut camera = Camera::new(900, 450, PI / 3.0).with_view_transform(
+        point(-3.5, 2.5, -7),
+        point(0, 0.5, 0),
         vector(0, 1, 0),
     );
     camera.set_allowed_standard_error(1e-2);
