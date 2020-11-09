@@ -71,7 +71,7 @@ fn main() {
         point(0, 1, 0),
         vector(0, 1, 0),
     );
-    camera.set_allowed_standard_error(1e-2);
+    camera.set_allowed_standard_error(1e2);
 
     let image = camera.render_live(&world, "Chapter 10");
 

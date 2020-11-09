@@ -10,7 +10,7 @@ fn main() {
     let (width, height) = (512, 512);
     let mut canvas = Canvas::new(width, height);
 
-    let (h, tx) = live_preview(width, height, "Chapter 5");
+    let (h, tx) = live_preview(width as usize, height as usize, "Chapter 5");
 
     let scene = vec![sphere()];
 

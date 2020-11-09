@@ -9,7 +9,7 @@ fn main() {
     let (width, height) = (64, 64);
     let mut canvas = Canvas::new(width, height);
 
-    let (h, tx) = live_preview(width, height, "Chapter 2");
+    let (h, tx) = live_preview(width as usize, height as usize, "Chapter 2");
 
     let env = Env {
         gravity: vector(0, -1, 0),

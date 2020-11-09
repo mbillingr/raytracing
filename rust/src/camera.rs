@@ -161,7 +161,7 @@ impl Camera {
 
     pub fn render_live(&self, world: &World, window_name: &'static str) -> Canvas {
         let mut canvas = Canvas::new(self.hsize, self.vsize);
-        let (h, tx) = live_preview(self.hsize, self.vsize, window_name);
+        let (h, tx) = live_preview(self.hsize as usize, self.vsize as usize, window_name);
         // It sucks to wrap the Sender in a Mutex. Ideally, each thread would have one copy
         // of tx, but there does not seem to be an easy way to accomplish this with Rayon.
         let tx = Mutex::new(tx);
