@@ -58,7 +58,7 @@ pub fn live_preview(
 
         let mut buffer = vec![0; win_w * win_h];
 
-        let mut move_step = 0.01;
+        let mut move_step = 1.0;
         let turn_step = 0.1;
 
         while window.is_open() {
