@@ -1,6 +1,6 @@
-use minifb::{Key, Window, WindowOptions};
+use minifb::{Key, KeyRepeat, Window, WindowOptions};
 use std::sync::mpsc;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -23,12 +23,21 @@ impl Message {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum Event {
+    Forward(f64),
+    Side(f64),
+    Up(f64),
+    Yaw(f64),
+}
+
 pub fn live_preview(
     width: usize,
     height: usize,
     window_name: &'static str,
-) -> (JoinHandle<()>, Sender<Message>) {
+) -> (JoinHandle<()>, Sender<Message>, Receiver<Event>) {
     let (tx, rx) = mpsc::channel();
+    let (event_tx, event_rx) = mpsc::channel();
 
     let aspect = width as f64 / height as f64;
 
@@ -48,6 +57,9 @@ pub fn live_preview(
         let mut window = Window::new(window_name, win_w, win_h, WindowOptions::default()).unwrap();
 
         let mut buffer = vec![0; win_w * win_h];
+
+        let mut move_step = 0.01;
+        let turn_step = 0.1;
 
         while window.is_open() {
             let deadline = Instant::now() + Duration::from_millis(100);
@@ -70,11 +82,55 @@ pub fn live_preview(
                 }
             }
 
+            if window.is_key_down(Key::LeftShift) || window.is_key_down(Key::RightShift) {
+                if window.is_key_pressed(Key::Up, KeyRepeat::Yes) {
+                    event_tx.send(Event::Up(-move_step)).unwrap();
+                }
+
+                if window.is_key_pressed(Key::Down, KeyRepeat::Yes) {
+                    event_tx.send(Event::Up(move_step)).unwrap();
+                }
+
+                if window.is_key_pressed(Key::Left, KeyRepeat::Yes) {
+                    event_tx.send(Event::Side(-move_step)).unwrap();
+                }
+
+                if window.is_key_pressed(Key::Right, KeyRepeat::Yes) {
+                    event_tx.send(Event::Side(move_step)).unwrap();
+                }
+            } else {
+                if window.is_key_pressed(Key::Up, KeyRepeat::Yes) {
+                    event_tx.send(Event::Forward(move_step)).unwrap();
+                }
+
+                if window.is_key_pressed(Key::Down, KeyRepeat::Yes) {
+                    event_tx.send(Event::Forward(-move_step)).unwrap();
+                }
+
+                if window.is_key_pressed(Key::Left, KeyRepeat::Yes) {
+                    event_tx.send(Event::Yaw(turn_step)).unwrap();
+                }
+
+                if window.is_key_pressed(Key::Right, KeyRepeat::Yes) {
+                    event_tx.send(Event::Yaw(-turn_step)).unwrap();
+                }
+
+                if window.is_key_pressed(Key::NumPadPlus, KeyRepeat::Yes) {
+                    move_step *= 1.5;
+                    println!("Move Step: {}", move_step);
+                }
+
+                if window.is_key_pressed(Key::NumPadMinus, KeyRepeat::Yes) {
+                    move_step /= 1.5;
+                    println!("Move Step: {}", move_step);
+                }
+            }
+
             window.update_with_buffer(&buffer, win_w, win_h).unwrap();
         }
     });
 
-    (h, tx)
+    (h, tx, event_rx)
 }
 
 fn rgb(r: u8, g: u8, b: u8) -> u32 {

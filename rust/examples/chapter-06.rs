@@ -12,7 +12,7 @@ fn main() {
     let (width, height) = (512, 512);
     let mut canvas = Canvas::new(width, height);
 
-    let (h, tx) = live_preview(width as usize, height as usize, "Chapter 6");
+    let (h, tx, _) = live_preview(width as usize, height as usize, "Chapter 6");
 
     let mut obj = sphere();
     obj.set_material(

@@ -1,13 +1,14 @@
 use crate::canvas::Canvas;
 use crate::color::{Color, BLACK};
-use crate::live_preview::{live_preview, Message};
-use crate::matrix::Matrix;
+use crate::live_preview::{live_preview, Event, Message};
+use crate::matrix::{rotation, translation, Matrix};
 use crate::ray::Ray;
 use crate::tuple::{point, vector, Point, Vector};
 use crate::world::World;
-//use rand::seq::SliceRandom;
+use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng};
 use rayon::prelude::*;
+use std::sync::mpsc::{RecvError, TryRecvError};
 use std::sync::Mutex;
 
 #[derive(Debug, Clone)]
@@ -161,7 +162,7 @@ impl Camera {
 
     pub fn render_live(&self, world: &World, window_name: &'static str) -> Canvas {
         let mut canvas = Canvas::new(self.hsize, self.vsize);
-        let (h, tx) = live_preview(self.hsize as usize, self.vsize as usize, window_name);
+        let (h, tx, _) = live_preview(self.hsize as usize, self.vsize as usize, window_name);
         // It sucks to wrap the Sender in a Mutex. Ideally, each thread would have one copy
         // of tx, but there does not seem to be an easy way to accomplish this with Rayon.
         let tx = Mutex::new(tx);
@@ -177,6 +178,75 @@ impl Camera {
         canvas
     }
 
+    pub fn render_interactive(&mut self, world: &World, window_name: &'static str) -> Canvas {
+        self.set_min_samples(1);
+
+        let mut canvas = Canvas::new(self.hsize, self.vsize);
+        let (h, tx, event_receiver) =
+            live_preview(self.hsize as usize, self.vsize as usize, window_name);
+        let tx = Mutex::new(tx);
+
+        loop {
+            let mut coordinates: Vec<_> = (0..self.vsize)
+                .flat_map(|y| (0..self.hsize).map(move |x| (x, y)))
+                .collect();
+            coordinates.shuffle(&mut thread_rng());
+
+            canvas.clear(BLACK);
+            tx.lock()
+                .unwrap()
+                .send(Message::Clear(128, 128, 128))
+                .unwrap();
+
+            let mut event = None;
+
+            for chunk in coordinates.chunks(16) {
+                let buffer: Vec<_> = chunk
+                    .to_vec()
+                    .into_par_iter()
+                    .map(|(x, y)| {
+                        let c = self.multisample(x, y, world);
+                        (x, y, c)
+                    })
+                    .collect();
+
+                for (x, y, c) in buffer {
+                    tx.lock()
+                        .unwrap()
+                        .send(Message::set_pixel(x, y, c))
+                        .unwrap();
+                    canvas.set_pixel(x, y, c);
+                }
+
+                match event_receiver.try_recv() {
+                    Ok(e) => {
+                        event = Some(e);
+                        break;
+                    }
+                    Err(TryRecvError::Empty) => {}
+                    Err(TryRecvError::Disconnected) => return canvas,
+                }
+            }
+
+            if event.is_none() {
+                match event_receiver.recv() {
+                    Ok(e) => event = Some(e),
+                    Err(_) => return canvas,
+                }
+            }
+
+            match event.unwrap() {
+                Event::Forward(t) => self.set_transform(translation(0.0, 0.0, t) * self.transform),
+                Event::Side(t) => self.set_transform(translation(t, 0.0, 0.0) * self.transform),
+                Event::Up(t) => self.set_transform(translation(0.0, t, 0.0) * self.transform),
+                Event::Yaw(phi) => self.set_transform(self.transform.rotate(phi, vector(0, 1, 0))),
+            }
+        }
+
+        h.join().unwrap();
+        canvas
+    }
+
     pub fn trace_pixels(
         &self,
         world: &World,
@@ -188,8 +258,8 @@ impl Camera {
         //coordinates.shuffle(&mut thread_rng());
 
         coordinates
-            .par_iter()
-            .map(|&(x, y)| (x, y, self.multisample(x, y, world)))
+            .into_par_iter()
+            .map(|(x, y)| (x, y, self.multisample(x, y, world)))
             .inspect(|&(x, y, color)| pixel_callback(x, y, color))
             .collect()
     }
